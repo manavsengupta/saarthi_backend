@@ -1,0 +1,239 @@
+
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi - Retailer Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static "listing.css" %}">
+</head>
+<body class="bg-gray-100 text-gray-800 antialiased">
+    <div class="main-container w-full max-w-4xl bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 lg:p-12 transition-all duration-300 mx-auto my-8">
+        <header class="text-center mb-10 flex flex-col items-center">
+            <h1 class="text-4xl font-bold text-saarthi-green mb-2">Saarthi</h1>
+            <p class="text-lg text-gray-600">Your Retail Supply Chain Partner</p>
+        </header>
+
+        <!-- Loading Indicator -->
+        <div id="loading-spinner" class="hidden flex items-center justify-center py-8">
+            <div class="spinner"></div>
+            <span class="text-lg text-gray-600">Loading...</span>
+        </div>
+
+        <!-- Retailer Dashboard Section (Always visible after Firebase init) -->
+        <section id="retailer-dashboard-section" class="animated-section">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4 sm:mb-0">
+                    Your Dashboard
+                </h2>
+                <div class="flex items-center gap-4">
+                    <p class="text-sm text-gray-600">User ID: <span id="display-user-id" class="font-mono text-xs break-all"></span></p>
+                    <button id="logout-btn" class="btn-primary bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow-sm transition duration-300 ease-in-out">
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Navigation Tabs -->
+            <nav class="flex space-x-4 border-b border-gray-200 mb-8 overflow-x-auto pb-2">
+                <button id="tab-dashboard" class="tab-button py-3 px-6 text-lg font-medium text-saarthi-green border-b-2 border-saarthi-green focus:outline-none transition-colors duration-200 whitespace-nowrap">
+                    Overview
+                </button>
+                <button id="tab-add-product" class="tab-button py-3 px-6 text-lg font-medium text-gray-600 hover:text-saarthi-green focus:outline-none transition-colors duration-200 whitespace-nowrap">
+                    Add Product
+                </button>
+                <button id="tab-my-listings" class="tab-button py-3 px-6 text-lg font-medium text-gray-600 hover:text-saarthi-green focus:outline-none transition-colors duration-200 whitespace-nowrap">
+                    My Listings
+                </button>
+                 <button id="tab-stock-alerts" class="tab-button py-3 px-6 text-lg font-medium text-gray-600 hover:text-saarthi-green focus:outline-none transition-colors duration-200 whitespace-nowrap">
+                    Stock Alerts
+                </button>
+                 <button id="tab-ai-insights" class="tab-button py-3 px-6 text-lg font-medium text-gray-600 hover:text-saarthi-green focus:outline-none transition-colors duration-200 whitespace-nowrap">
+                    AI Insights
+                </button>
+            </nav>
+
+            <!-- Tab Content: Overview -->
+            <div id="dashboard-tab-content" class="tab-content animated-section p-6 bg-white rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Welcome to Your Dashboard!</h3>
+                <p class="text-gray-600 mb-4">
+                    Here you can manage your product listings, view sales analytics, and track inventory.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card bg-blue-50 p-5 rounded-lg shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-blue-700">Total Products Listed</p>
+                            <p class="text-3xl font-bold text-blue-900" id="total-products-count">0</p>
+                        </div>
+                        <svg class="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m7 0V5a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <div class="stat-card bg-green-50 p-5 rounded-lg shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-green-700">Pending Orders</p>
+                            <p class="text-3xl font-bold text-green-900">7</p>
+                        </div>
+                        <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Add Product -->
+            <div id="add-product-tab-content" class="tab-content animated-section hidden p-6 bg-white rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Add New Product</h3>
+                <form id="add-product-form">
+                    <div class="mb-4">
+                        <label for="product-name" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Product Name</label>
+                        <input type="text" id="product-name" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., Organic Apples" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="product-category" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Category</label>
+                        <input type="text" id="product-category" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., Produce" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="product-price" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Price ($)</label>
+                        <input type="number" id="product-price" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., 2.99" step="0.01" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="product-stock" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Stock Quantity</label>
+                        <input type="number" id="product-stock" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., 500" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="min-stock-threshold" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Min Stock Threshold (Low Alert)</label>
+                        <input type="number" id="min-stock-threshold" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., 50" value="50" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="max-stock-threshold" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Max Stock Threshold (Overstock Alert)</label>
+                        <input type="number" id="max-stock-threshold" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., 1000" value="1000" required>
+                    </div>
+                     <div class="mb-6">
+                        <label for="retailer-name-input" class="block text-gray-700 text-sm font-bold mb-2 pulsate-label">Your Store Name (e.g., Walmart, Target, Kroger)</label>
+                        <input type="text" id="retailer-name-input" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:shadow-outline" placeholder="e.g., My Store" required>
+                    </div>
+                    <button type="submit" id="add-product-submit-btn" class="btn-primary bg-saarthi-green hover:bg-saarthi-green-dark text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform w-full">
+                        Add Product
+                    </button>
+                </form>
+                <div id="add-product-message" class="message-box mt-4 p-3 rounded-lg text-center hidden"></div>
+            </div>
+
+            <!-- Tab Content: My Listings -->
+            <div id="my-listings-tab-content" class="tab-content animated-section hidden p-6 bg-white rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Your Product Listings</h3>
+                <div id="product-listings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Product cards will be dynamically added here -->
+                </div>
+                <p id="no-products-message" class="text-gray-500 text-center mt-8 text-lg hidden">
+                    No products listed yet. Go to "Add Product" to get started!
+                </p>
+            </div>
+
+            <!-- Tab Content: Stock Alerts -->
+            <div id="stock-alerts-tab-content" class="tab-content animated-section hidden p-6 bg-white rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Inventory Stock Alerts</h3>
+                <p class="text-gray-600 mb-8">
+                    Monitor products requiring immediate attention due to low or excessive stock levels.
+                </p>
+
+                <div class="mb-8">
+                    <h4 class="text-xl font-semibold text-red-700 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        Low Stock Items
+                    </h4>
+                    <ul id="low-stock-items" class="space-y-3">
+                        <li class="text-gray-500">No low stock items detected.</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="text-xl font-semibold text-blue-700 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                        Overstocked Items
+                    </h4>
+                    <ul id="overstocked-items" class="space-y-3">
+                        <li class="text-gray-500">No overstocked items detected.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tab Content: AI Insights -->
+            <div id="ai-insights-tab-content" class="tab-content animated-section hidden p-6 bg-white rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">AI Powered Business Insights</h3>
+                <p class="text-gray-600 mb-8">
+                    Leverage data-driven predictions and trends to optimize your retail operations.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Past Order Trends -->
+                    <div class="bg-purple-50 p-5 rounded-lg shadow-sm">
+                        <h4 class="text-xl font-semibold text-purple-800 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            Past Order Trends
+                        </h4>
+                        <ul id="past-order-trends" class="list-disc list-inside text-gray-700">
+                            <li>Placeholder: Top selling products in Q1: Organic Produce, Dairy, Packaged Snacks.</li>
+                            <li>Placeholder: Sales peak during weekends.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Festival Trending -->
+                    <div class="bg-yellow-50 p-5 rounded-lg shadow-sm">
+                        <h4 class="text-xl font-semibold text-yellow-800 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.519 4.674c.3.921-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.519-4.674a1 1 0 00-.363-1.118L2.928 9.501c-.783-.57-.381-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.519-4.674z"></path></svg>
+                            Festival Trending
+                        </h4>
+                        <ul id="festival-trends" class="list-disc list-inside text-gray-700">
+                            <li>Placeholder: Holiday season (Nov-Dec): Demand for electronics and festive decor increases by 40%.</li>
+                            <li>Placeholder: Summer (June-Aug): High demand for beverages and outdoor items.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Most Searched Products -->
+                    <div class="bg-teal-50 p-5 rounded-lg shadow-sm">
+                        <h4 class="text-xl font-semibold text-teal-800 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            Most Searched Products
+                        </h4>
+                        <ul id="most-searched-products" class="list-disc list-inside text-gray-700">
+                            <li>Placeholder: Currently trending: Wireless Headphones, Smart Home Devices.</li>
+                            <li>Placeholder: Seasonal searches: Grills (Spring), Winter Coats (Fall).</li>
+                        </ul>
+                    </div>
+
+                    <!-- Future Predictions -->
+                    <div class="bg-red-50 p-5 rounded-lg shadow-sm">
+                        <h4 class="text-xl font-semibold text-red-800 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4.636 18.364l-.707.707M3 12H2m6.364-1.636l-.707-.707M12 21v-1m6.364-1.636l.707.707M12 12l-.242 1.161a5 5 0 00-.99 2.502V19.5h-.75a2.25 2.25 0 110-4.5h.75M12 12l.991-1.487A3.75 3.75 0 0012 6.75V4.5m-9.364 5.636l.707-.707"></path></svg>
+                            Future Predictions
+                        </h4>
+                        <ul id="future-predictions" class="list-disc list-inside text-gray-700">
+                            <li>Placeholder: Expect increased demand for eco-friendly products next quarter.</li>
+                            <li>Placeholder: Potential rise in online grocery orders due to new market trends.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-11/12 md:w-1/3 modal-enter">
+            <p id="confirm-message" class="text-lg text-gray-800 mb-6 text-center"></p>
+            <div class="flex justify-end gap-4">
+                <button id="confirm-cancel-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition duration-200">Cancel</button>
+                <button id="confirm-ok-btn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript file -->
+    <script type="module" src="{% static "listing.js" %}"></script>
+{% include "navbar.html" %}
+</body></html>

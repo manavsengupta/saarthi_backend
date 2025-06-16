@@ -1,0 +1,261 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi - Your Supply Chain Partner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1 class="animate__animated animate__fadeInDown">Welcome to <span class="brand-name">Saarthi</span>!</h1>
+
+        <div class="user-type-selection animate__animated animate__fadeInUp">
+            <button id="retailerBtn" class="active">Retailer</button>
+            <button id="deliveryPartnerBtn">Delivery Partner</button>
+            <button id="customerBtn">Customer</button>
+        </div>
+
+        <div id="retailerSection" class="form-section active animate__animated">
+            <h2>Retailer Login/Signup</h2>
+            <div class="form-toggle">
+                <button id="retailerLoginToggle" class="active">Login</button>
+                <button id="retailerSignupToggle">Signup</button>
+            </div>
+            <form id="retailerLoginForm" class="login-form active animate__animated animate__fadeIn">
+                <h3>Retailer Login</h3>
+                <label for="retailerLoginEmail">Email:</label>
+                <input type="email" id="retailerLoginEmail" name="email" required>
+                <label for="retailerLoginPassword">Password:</label>
+                <input type="password" id="retailerLoginPassword" name="password" required>
+                <button type="submit">Login</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="retailer">
+                    <i class="fab fa-google"></i> Login with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="retailer">
+                    <i class="fab fa-facebook-f"></i> Login with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="retailer">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="retailer">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="retailer">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+
+            <form id="retailerSignupForm" class="signup-form hidden animate__animated animate__fadeIn">
+                <h3>Retailer Signup</h3>
+                <label for="retailerSignupName">Store Name:</label>
+                <input type="text" id="retailerSignupName" name="storeName" required>
+                <label for="retailerSignupEmail">Email:</label>
+                <input type="email" id="retailerSignupEmail" name="email" required>
+                <label for="retailerSignupPassword">Password:</label>
+                <input type="password" id="retailerSignupPassword" name="password" required>
+                <label for="retailerSignupConfirmPassword">Confirm Password:</label>
+                <input type="password" id="retailerSignupConfirmPassword" name="confirmPassword" required>
+                <button type="submit">Sign Up</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="retailer">
+                    <i class="fab fa-google"></i> Signup with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="retailer">
+                    <i class="fab fa-facebook-f"></i> Signup with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="retailer">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="retailer">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="retailer">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div id="deliveryPartnerSection" class="form-section hidden animate__animated">
+            <h2>Delivery Partner Login/Signup</h2>
+            <div class="form-toggle">
+                <button id="deliveryPartnerLoginToggle" class="active">Login</button>
+                <button id="deliveryPartnerSignupToggle">Signup</button>
+            </div>
+            <form id="deliveryPartnerLoginForm" class="login-form active animate__animated animate__fadeIn">
+                <h3>Delivery Partner Login</h3>
+                <label for="deliveryPartnerLoginEmail">Email:</label>
+                <input type="email" id="deliveryPartnerLoginEmail" name="email" required>
+                <label for="deliveryPartnerLoginPassword">Password:</label>
+                <input type="password" id="deliveryPartnerLoginPassword" name="password" required>
+                <button type="submit">Login</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="deliveryPartner">
+                    <i class="fab fa-google"></i> Login with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="deliveryPartner">
+                    <i class="fab fa-facebook-f"></i> Login with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="deliveryPartner">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="deliveryPartner">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="deliveryPartner">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+
+            <form id="deliveryPartnerSignupForm" class="signup-form hidden animate__animated animate__fadeIn">
+                <h3>Delivery Partner Signup</h3>
+                <div class="delivery-type-selection">
+                    <label>
+                        <input type="radio" name="deliveryType" value="fulltime" checked> Full-time
+                    </label>
+                    <label>
+                        <input type="radio" name="deliveryType" value="parttime"> Part-time
+                    </label>
+                </div>
+
+                <label for="deliveryPartnerSignupName">Full Name:</label>
+                <input type="text" id="deliveryPartnerSignupName" name="fullName" required>
+                <label for="deliveryPartnerSignupEmail">Email:</label>
+                <input type="email" id="deliveryPartnerSignupEmail" name="email" required>
+
+                <div id="fulltimeFields">
+                    <label for="deliveryPartnerSignupVehicle">Delivery Vehicle (License Plate):</label>
+                    <input type="text" id="deliveryPartnerSignupVehicle" name="vehicle" placeholder="e.g., ABC-1234" required>
+                </div>
+                <div id="parttimeFields" class="hidden">
+                    <label for="deliveryPartnerSignupHours">Preferred Delivery Hours:</label>
+                    <input type="text" id="deliveryPartnerSignupHours" name="preferredHours" placeholder="e.g., Evenings, Weekends">
+                </div>
+
+                <label for="deliveryPartnerSignupPassword">Password:</label>
+                <input type="password" id="deliveryPartnerSignupPassword" name="password" required>
+                <label for="deliveryPartnerSignupConfirmPassword">Confirm Password:</label>
+                <input type="password" id="deliveryPartnerSignupConfirmPassword" name="confirmPassword" required>
+                <button type="submit">Sign Up</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="deliveryPartner">
+                    <i class="fab fa-google"></i> Signup with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="deliveryPartner">
+                    <i class="fab fa-facebook-f"></i> Signup with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="deliveryPartner">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="deliveryPartner">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="deliveryPartner">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div id="customerSection" class="form-section hidden animate__animated">
+            <h2>Customer Login/Signup</h2>
+            <div class="form-toggle">
+                <button id="customerLoginToggle" class="active">Login</button>
+                <button id="customerSignupToggle">Signup</button>
+            </div>
+            <form id="customerLoginForm" class="login-form active animate__animated animate__fadeIn">
+                <h3>Customer Login</h3>
+                <label for="customerLoginEmail">Email:</label>
+                <input type="email" id="customerLoginEmail" name="email" required>
+                <label for="customerLoginPassword">Password:</label>
+                <input type="password" id="customerLoginPassword" name="password" required>
+                <button type="submit">Login</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="customer">
+                    <i class="fab fa-google"></i> Login with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="customer">
+                    <i class="fab fa-facebook-f"></i> Login with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="customer">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="customer">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="customer">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+            <form id="customerSignupForm" class="signup-form hidden animate__animated animate__fadeIn">
+                <h3>Customer Signup</h3>
+                <label for="customerSignupName">Full Name:</label>
+                <input type="text" id="customerSignupName" name="fullName" required>
+                <label for="customerSignupEmail">Email:</label>
+                <input type="email" id="customerSignupEmail" name="email" required>
+                <label for="customerSignupAddress">Address:</label>
+                <input type="text" id="customerSignupAddress" name="address" required>
+                <label for="customerSignupPassword">Password:</label>
+                <input type="password" id="customerSignupPassword" name="password" required>
+                <label for="customerSignupConfirmPassword">Confirm Password:</label>
+                <input type="password" id="customerSignupConfirmPassword" name="confirmPassword" required>
+                <button type="submit">Sign Up</button>
+
+                <div class="divider">OR</div>
+
+                <button type="button" class="social-btn google-btn" data-user-type="customer">
+                    <i class="fab fa-google"></i> Signup with Google
+                </button>
+                <button type="button" class="social-btn facebook-btn" data-user-type="customer">
+                    <i class="fab fa-facebook-f"></i> Signup with Facebook
+                </button>
+                <div class="mobile-login-container">
+                    <div class="mobile-input-group">
+                        <input type="tel" class="mobile-input" placeholder="Mobile Number" pattern="[0-9]{10}" required>
+                        <button type="button" class="mobile-otp-btn send-otp-btn" data-user-type="customer">Send OTP</button>
+                        <span class="otp-timer hidden">60s</span>
+                    </div>
+                    <div class="otp-verification-section hidden animate__animated animate__fadeIn">
+                        <input type="text" class="otp-input" placeholder="Enter OTP" pattern="[0-9]{4,6}" required>
+                        <button type="button" class="mobile-otp-btn verify-otp-btn" data-user-type="customer">Verify OTP</button>
+                        <button type="button" class="mobile-otp-btn resend-otp-btn hidden" data-user-type="customer">Resend OTP</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="customNotification" class="custom-notification hidden"></div>
+
+    <script src="{% static 'script.js' %}"></script>
+{% include "navbar.html" %}
+</body></html>

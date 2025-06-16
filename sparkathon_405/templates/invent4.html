@@ -1,0 +1,1297 @@
+
+{% load static %}   
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi Retailer - Smart Warehouse System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- jsQR for QR code scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- QuaggaJS for barcode scanning -->
+    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background-color 0.3s ease, color 0.3s ease; /* Smooth theme transition */
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #333;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* Tailwind gray-300 */
+            border-radius: 10px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #4a5568; /* Tailwind gray-700 */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0; /* Tailwind gray-400 */
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #6a748c; /* Slightly lighter gray-700 */
+        }
+
+        /* Styles for drag-and-drop feedback */
+        .shelf-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        .shelf-slot.drag-over {
+            @apply ring-4 ring-blue-500 ring-offset-2; /* Tailwind classes for ring */
+        }
+        .shelf-slot.drag-over-invalid {
+            @apply ring-4 ring-red-500 ring-offset-2;
+        }
+        /* Style for the unshelve zone */
+        .unshelve-zone.drag-over {
+            @apply ring-4 ring-green-500 ring-offset-2; /* Highlight green for unshelving */
+        }
+
+
+        /* Hide elements visually but keep accessible for screen readers */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* For webcam video and canvas */
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            border-radius: 0.75rem; /* rounded-xl */
+            overflow: hidden;
+        }
+        .scanner-container video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .scanner-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Dark mode specific styles */
+        .dark .bg-gray-50 {
+            background-color: #1a202c; /* gray-900 */
+        }
+        .dark .bg-gray-100 {
+            background-color: #2d3748; /* gray-800 */
+        }
+        .dark .bg-white {
+            background-color: #2d3748; /* gray-800 */
+            border-color: #4a5568; /* gray-700 */
+        }
+        .dark .text-gray-800, .dark .text-gray-900 {
+            color: #e2e8f0; /* gray-200 */
+        }
+        .dark .text-gray-700 {
+            color: #a0aec0; /* gray-400 */
+        }
+        .dark .text-gray-600 {
+            color: #cbd5e1; /* gray-300 */
+        }
+        .dark .text-gray-500 {
+            color: #a0aec0; /* gray-400 */
+        }
+        .dark .border-gray-200 {
+            border-color: #4a5568; /* gray-700 */
+        }
+        .dark .border-gray-300 {
+            border-color: #4a5568; /* gray-700 */
+        }
+        .dark input {
+            background-color: #4a5568; /* gray-700 */
+            border-color: #6a748c; /* gray-600 */
+            color: #e2e8f0; /* gray-200 */
+        }
+        .dark input::placeholder {
+            color: #a0aec0; /* gray-400 */
+        }
+        .dark .shelf-slot {
+            background-color: #1a202c; /* gray-900 */
+            border-color: #4a5568; /* gray-700 */
+        }
+        .dark .shelf-item {
+            background-color: #4a5568; /* gray-700 */
+            border-color: #6a748c; /* gray-600 */
+            color: #e2e8f0; /* gray-200 */
+        }
+        .dark .shelf-item.on-shelf {
+             background-color: #3182ce; /* blue-600 */
+             border-color: #63b3ed; /* blue-400 */
+             color: #e2e8f0;
+        }
+        .dark .shelf-item.on-shelf p {
+             color: #e2e8f0;
+        }
+        .dark .shelf-slot .text-gray-400 {
+             color: #a0aec0; /* gray-400 */
+        }
+        .dark .shelf-slot .text-gray-500 {
+            color: #a0aec0; /* gray-400 */
+        }
+        .dark .shelf-slot.drag-over {
+            @apply ring-blue-400;
+        }
+        .dark .shelf-slot.drag-over-invalid {
+            @apply ring-red-400;
+        }
+        .dark .nav-button:not(.active) {
+            color: #a0aec0; /* gray-400 */
+        }
+        .dark .nav-button.hover\:bg-gray-200:hover {
+            background-color: #4a5568;
+        }
+        .dark table thead th {
+            background-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .dark table tbody tr {
+            background-color: #2d3748;
+        }
+        .dark table tbody tr:hover {
+            background-color: #4a5568;
+        }
+        .dark .unshelve-zone {
+            background-color: #2d3748; /* gray-800 */
+            border-color: #4a5568; /* gray-700 */
+        }
+        .dark .unshelve-zone.drag-over {
+            @apply ring-green-400;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg p-4 md:p-6 flex items-center justify-between">
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+            <span class="text-green-300">Saarthi Retailer</span> <span class="block text-sm md:inline md:ml-2 opacity-90">Smart Warehouse System</span>
+        </h1>
+        <div class="flex items-center space-x-4">
+            <!-- Theme Changer Button -->
+            <button id="theme-toggle" class="flex items-center text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 rounded-full p-2 transition-all duration-300 hover:bg-white hover:bg-opacity-20">
+                <!-- Sun Icon (for light mode) -->
+                <svg id="sun-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1s1-.45 1-1V3c0-.55-.45-1-1-1zm0 20c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1s1-.45 1-1v-1c0-.55-.45-1-1-1zM4.22 5.64a.996.996 0 000 1.41l.71.71a.996.996 0 101.41-1.41l-.71-.71a.996.996 0 00-1.41 0zm14.14 12.72a.996.996 0 000 1.41l.71.71a.996.996 0 101.41-1.41l-.71-.71a.996.996 0 00-1.41 0zM3 11c-.55 0-1 .45-1 1s.45 1 1 1h1c.55 0 1-.45 1-1s-.45-1-1-1H3zm19 0h-1c-.55 0-1 .45-1 1s.45 1 1 1h1c.55 0 1-.45 1-1s-.45-1-1-1zM5.64 18.36a.996.996 0 001.41 0l.71-.71a.996.996 0 10-1.41-1.41l-.71.71a.996.996 0 000 1.41zM18.36 5.64a.996.996 0 000 1.41l.71.71a.996.996 0 101.41-1.41l-.71-.71a.996.996 0 00-1.41 0zM12 8a4 4 0 100 8 4 4 0 000-8zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                <!-- Moon Icon (for dark mode) -->
+                <svg id="moon-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 3a9 9 0 009 9c0 4.41-3.59 8-8 8s-8-3.59-8-8c0-3.6 2.38-6.66 5.66-7.74.32-.1.65-.16 1-.19V3zm0 2c-2.48 0-4.5 2.02-4.5 4.5s2.02 4.5 4.5 4.5c2.48 0 4.5-2.02 4.5-4.5s-2.02-4.5-4.5-4.5z"/></svg>
+                <span class="sr-only">Toggle Theme</span>
+            </button>
+            <!-- User Profile Icon (Placeholder) -->
+            <button class="flex items-center text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 rounded-full p-2 transition-all duration-300 hover:bg-white hover:bg-opacity-20">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                <span class="sr-only">User Profile</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex flex-1 flex-col md:flex-row">
+        <!-- Sidebar Navigation -->
+        <nav class="bg-gray-100 p-4 md:p-6 shadow-md md:w-64 flex-shrink-0">
+            <ul class="space-y-2">
+                <li>
+                    <button class="nav-button active bg-blue-500 text-white hover:bg-blue-600 w-full text-left py-2 px-4 rounded-lg flex items-center gap-3 transition-all duration-300" data-section="dashboard">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 01-8 8v-8H2z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
+                        <span>Dashboard</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-button hover:bg-gray-200 w-full text-left py-2 px-4 rounded-lg flex items-center gap-3 transition-all duration-300" data-section="warehouse-layout">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10.89 2.551A1 1 0 0010 2.525L6.839 4.195a1 1 0 00-.517.551L5 8h10V5l-1.883-.942a1 1 0 00-.61-.317L10.89 2.551zM15 11H5v6h10v-6z" clip-rule="evenodd"></path></svg>
+                        <span>Warehouse Layout</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-button hover:bg-gray-200 w-full text-left py-2 px-4 rounded-lg flex items-center gap-3 transition-all duration-300" data-section="scan-product">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 00-1.414 0L6 9.586V9a1 1 0 00-1-1h-.586l.293-.293a1 1 0 000-1.414L3.293 4.293a1 1 0 00-1.414 1.414l2.5 2.5a1 1 0 000 1.414l-2.5 2.5a1 1 0 001.414 1.414l2.293-2.293V14a1 1 0 001 1h.586l-.293.293a1 1 0 000 1.414l2.5 2.5a1 1 0 001.414-1.414l-2.293-2.293V6.707a1 1 0 000-1.414z" clip-rule="evenodd"></path></svg>
+                        <span>Scan Product</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-button hover:bg-gray-200 w-full text-left py-2 px-4 rounded-lg flex items-center gap-3 transition-all duration-300" data-section="product-management">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm3 8a1 1 0 000 2h6a1 1 0 100-2H7z"></path><path fill-rule="evenodd" d="M18 9a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1v-6a1 1 0 011-1h16zm-5-3a1 1 0 00-1-1H8a1 1 0 00-1 1v2a1 1 0 001 1h4a1 1 0 001-1V6z" clip-rule="evenodd"></path></svg>
+                        <span>Product Management</span>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Content Sections -->
+        <div id="content-area" class="flex-1 p-4 md:p-8 bg-gray-50 overflow-y-auto">
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active space-y-6">
+                <h2 class="text-3xl font-semibold text-gray-900 mb-6">Dashboard Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200 transition-all duration-300 hover:shadow-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0 p-3 bg-blue-100 text-blue-600 rounded-full">
+                                <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 002-2V4H4zm10 10v2a2 2 0 002 2h2v-2H2v2h2a2 2 0 002 2h10a2 2 0 002-2v-2H14z" clip-rule="evenodd"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Total Products</p>
+                                <p id="dashboard-total-products" class="text-2xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200 transition-all duration-300 hover:shadow-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0 p-3 bg-green-100 text-green-600 rounded-full">
+                                <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H5zm0 15v-8a1 1 0 011-1h8a1 1 0 011 1v8h2a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v12a1 1 0 001 1z" clip-rule="evenodd"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Occupied Shelf Slots</p>
+                                <p id="dashboard-occupied-shelves" class="text-2xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200 transition-all duration-300 hover:shadow-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0 p-3 bg-purple-100 text-purple-600 rounded-full">
+                                <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M12.395 2.547a.75.75 0 00-.735.006L.998 7.466a.75.75 0 000 1.06l11.458 4.913a.75.75 0 00.735.006l11.458-4.913a.75.75 0 000-1.06L12.395 2.547zM4.75 9l5.5 2.36L15.75 9v-.75L10.25 6.14 4.75 6.89V9z" clip-rule="evenodd"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Available Shelf Slots</p>
+                                <p id="dashboard-available-shelves" class="text-2xl font-bold text-gray-900">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Warehouse Layout Section -->
+            <section id="warehouse-layout" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-semibold text-gray-900 mb-6">Warehouse Layout</h2>
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <!-- Product Inventory Sidebar -->
+                    <div class="bg-white rounded-xl shadow-md p-4 lg:w-1/4 flex-shrink-0 overflow-y-auto max-h-[500px]">
+                        <h3 class="text-xl font-medium text-gray-900 mb-4">Product Inventory</h3>
+                        <!-- New Unshelve Zone -->
+                        <div id="unshelve-zone" class="unshelve-zone bg-gray-100 border-2 border-dashed border-gray-400 rounded-lg p-4 mb-4 text-center text-gray-600 flex flex-col items-center justify-center h-24 transition-all duration-200">
+                            <svg class="w-8 h-8 text-gray-500 mb-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm1-1h10V5H4v2zm0 4h10v4H4v-4z" clip-rule="evenodd"></path></svg>
+                            <p class="text-sm font-medium">Drag product here to remove from shelf</p>
+                        </div>
+                        <div id="product-inventory-list" class="space-y-2">
+                            <!-- Products will be dynamically loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Warehouse Grid -->
+                    <div id="warehouse-grid" class="flex-1 bg-white rounded-xl shadow-md p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-min">
+                        <!-- Shelf slots will be dynamically generated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scan Product Section -->
+            <section id="scan-product" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-semibold text-gray-900 mb-6">Scan Product (Barcode/QR Code)</h2>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex flex-col md:flex-row gap-4 mb-6">
+                        <button id="start-scanner-btn" class="bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-600 transition-all duration-300 flex-1 flex items-center justify-center gap-2">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 002-2V4H4zm10 10v2a2 2 0 002 2h2v-2H2v2h2a2 2 0 002 2h10a2 2 0 002-2v-2H14z" clip-rule="evenodd"></path></svg>
+                            Start Scanner
+                        </button>
+                        <button id="stop-scanner-btn" class="bg-red-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-600 transition-all duration-300 flex-1 flex items-center justify-center gap-2" disabled>
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                            Stop Scanner
+                        </button>
+                    </div>
+
+                    <div id="loading-message" class="text-center text-blue-600 font-medium hidden">Loading scanner...</div>
+                    <div id="scanner-error" class="text-center text-red-600 font-medium hidden"></div>
+
+                    <div class="scanner-container relative bg-gray-900 rounded-xl mb-6">
+                        <video id="scanner-video" class="w-full h-auto rounded-xl"></video>
+                        <canvas id="scanner-canvas" class="absolute inset-0 w-full h-full"></canvas>
+                    </div>
+
+                    <div id="scan-results" class="bg-gray-100 p-4 rounded-lg border border-gray-200">
+                        <h3 class="text-xl font-medium text-gray-900 mb-3">Scanned Product Details:</h3>
+                        <p id="scanned-id" class="text-gray-700">ID: <span class="font-semibold">-</span></p>
+                        <p id="scanned-name" class="text-gray-700">Name: <span class="font-semibold">-</span></p>
+                        <p id="scanned-type" class="text-gray-700">Type: <span class="font-semibold">-</span></p>
+                        <p id="scanned-recommendation" class="text-gray-700 mt-2">Recommended Shelf: <span class="font-semibold text-blue-600">-</span></p>
+                        <button id="place-on-shelf-btn" class="bg-green-500 text-white py-2 px-4 rounded-lg mt-4 font-semibold hover:bg-green-600 transition-all duration-300 hidden">
+                            Place Product on Recommended Shelf
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Product Management Section -->
+            <section id="product-management" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-semibold text-gray-900 mb-6">Product Management</h2>
+
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
+                    <h3 class="text-xl font-medium text-gray-900 mb-4">Add New Product</h3>
+                    <form id="add-product-form" class="space-y-4">
+                        <div>
+                            <label for="product-id" class="block text-sm font-medium text-gray-700 mb-1">Product ID:</label>
+                            <input type="text" id="product-id" name="id" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="e.g., P007" required>
+                        </div>
+                        <div>
+                            <label for="product-name" class="block text-sm font-medium text-gray-700 mb-1">Product Name:</label>
+                            <input type="text" id="product-name" name="name" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="e.g., Wireless Earbuds" required>
+                        </div>
+                        <div>
+                            <label for="product-type" class="block text-sm font-medium text-gray-700 mb-1">Product Type:</label>
+                            <input type="text" id="product-type" name="type" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="e.g., Electronics, Food, Cleaning" required>
+                        </div>
+                        <div>
+                            <label for="product-barcode" class="block text-sm font-medium text-gray-700 mb-1">Barcode (optional):</label>
+                            <input type="text" id="product-barcode" name="barcode" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="e.g., 789012345678">
+                        </div>
+                        <div>
+                            <label for="product-qr" class="block text-sm font-medium text-gray-700 mb-1">QR Data (optional, use 'product:ID'):</label>
+                            <input type="text" id="product-qr" name="qr" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2" placeholder="e.g., product:P007">
+                        </div>
+                        <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-600 transition-all duration-300">Add Product</button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                    <h3 class="text-xl font-medium text-gray-900 mb-4">Existing Products</h3>
+                    <div class="mb-4">
+                        <label for="product-search" class="sr-only">Search Products</label>
+                        <input type="text" id="product-search" placeholder="Search by ID or Name..." class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2 transition-all duration-300">
+                    </div>
+                    <div id="product-list-table-container" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-list-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Product rows will be dynamically loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="no-products-message" class="text-center text-gray-500 mt-4 hidden">No products found. Add some above!</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Global Message Box (for alerts) -->
+    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm transform scale-95 transition-transform duration-300">
+            <h3 id="message-box-title" class="text-xl font-semibold mb-4 text-gray-800"></h3>
+            <p id="message-box-content" class="text-gray-700 mb-6"></p>
+            <div class="flex justify-end space-x-3">
+                <button id="message-box-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200">Cancel</button>
+                <button id="message-box-confirm" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200">OK</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // Global state for products and shelves
+        let products = [
+            { id: 'P001', name: 'Laptop Pro', type: 'Electronics', barcode: '123456789012', qr: 'product:P001' },
+            { id: 'P002', name: 'Smartwatch X', type: 'Electronics', barcode: '234567890123', qr: 'product:P002' },
+            { id: 'P003', name: 'Coffee Beans', type: 'Food', barcode: '345678901234', qr: 'product:P003' },
+            { id: 'P004', name: 'Cleaning Spray', type: 'Cleaning', barcode: '456789012345', qr: 'product:P004' },
+            { id: 'P005', name: 'Bluetooth Speaker', type: 'Electronics', barcode: '567890123456', qr: 'product:P005' },
+            { id: 'P006', name: 'Organic Apples', type: 'Food', barcode: '678901234567', qr: 'product:P006' },
+        ];
+
+        const WAREHOUSE_ROWS = 4;
+        const WAREHOUSE_COLS = 5;
+        let shelves = []; // Will be a 2D array: shelves[row][col] = { id, capacity, currentProduct, type }
+
+        // Function to get icon based on product/shelf type
+        function getTypeIcon(type) {
+            switch (type.toLowerCase()) {
+                case 'electronics': return '⚡';
+                case 'food': return '🍎';
+                case 'cleaning': return '🧼';
+                case 'general': return '📦';
+                default: return '❓';
+            }
+        }
+
+        // Initialize shelves
+        function initializeShelves() {
+            for (let i = 0; i < WAREHOUSE_ROWS; i++) {
+                shelves[i] = [];
+                for (let j = 0; j < WAREHOUSE_COLS; j++) {
+                    // Assign specific types to some shelves for better demo of recommendation
+                    let assignedType = 'General';
+                    if (i === 0 && j === 0) assignedType = 'Electronics';
+                    if (i === 0 && j === 1) assignedType = 'Electronics';
+                    if (i === 1 && j === 0) assignedType = 'Food';
+                    if (i === 1 && j === 1) assignedType = 'Food';
+                    if (i === 2 && j === 0) assignedType = 'Cleaning';
+                    if (i === 2 && j === 1) assignedType = 'Cleaning';
+                    if (i === 0 && j === 4) assignedType = 'Electronics'; // Another electronics
+                    if (i === 3 && j === 4) assignedType = 'Food'; // Another food
+
+                    shelves[i][j] = { id: `S${i}-${j}`, capacity: 1, currentProduct: null, type: assignedType };
+                }
+            }
+            // Pre-fill some shelves for demonstration
+            if (products.length > 0) {
+                shelves[0][0].currentProduct = products[0]; // Laptop Pro (Electronics) on Electronics shelf
+            }
+            if (products.length > 1) {
+                shelves[1][0].currentProduct = products[1]; // Smartwatch X (Electronics) on Food shelf (will be a bad fit for recommendation)
+            }
+            if (products.length > 2) {
+                shelves[3][4].currentProduct = products[2]; // Coffee Beans (Food) on Food shelf
+            }
+        }
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom message box instead of alert/confirm.
+         * @param {string} title - The title of the message box.
+         * @param {string} message - The content message.
+         * @param {boolean} [isConfirm=false] - If true, shows OK/Cancel buttons; otherwise, just OK.
+         * @returns {Promise<boolean>} - Resolves true for OK, false for Cancel.
+         */
+        function showMessageBox(title, message, isConfirm = false) {
+            const messageBox = document.getElementById('message-box');
+            const messageBoxTitle = document.getElementById('message-box-title');
+            const messageBoxContent = document.getElementById('message-box-content');
+            const messageBoxConfirmBtn = document.getElementById('message-box-confirm');
+            const messageBoxCancelBtn = document.getElementById('message-box-cancel');
+
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = message;
+
+            if (isConfirm) {
+                messageBoxCancelBtn.classList.remove('hidden');
+            } else {
+                messageBoxCancelBtn.classList.add('hidden');
+            }
+
+            messageBox.classList.remove('hidden');
+            // Animate in
+            setTimeout(() => {
+                messageBox.classList.add('opacity-100');
+                messageBox.querySelector('div').classList.remove('scale-95');
+                messageBox.querySelector('div').classList.add('scale-100');
+            }, 10);
+
+            return new Promise((resolve) => {
+                const onConfirm = () => {
+                    hideMessageBox();
+                    resolve(true);
+                };
+                const onCancel = () => {
+                    hideMessageBox();
+                    resolve(false);
+                };
+
+                messageBoxConfirmBtn.onclick = onConfirm;
+                messageBoxCancelBtn.onclick = onCancel;
+            });
+        }
+
+        function hideMessageBox() {
+            const messageBox = document.getElementById('message-box');
+            messageBox.classList.remove('opacity-100');
+            messageBox.querySelector('div').classList.remove('scale-100');
+            messageBox.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 300); // Allow time for transition
+        }
+
+        /**
+         * Simulates a smart recommendation for a product's shelf location.
+         * Prioritizes:
+         * 1. Empty shelf of the exact same product type.
+         * 2. Empty 'General' type shelf.
+         * 3. Any empty shelf.
+         * @param {Object} product - The product object.
+         * @returns {Object|null} - The recommended shelf object or null if none found.
+         */
+        function getRecommendedShelf(product) {
+            let foundMatch = null;
+            let foundGeneral = null;
+            let foundAnyEmpty = null;
+
+            for (let r = 0; r < WAREHOUSE_ROWS; r++) {
+                for (let c = 0; c < WAREHOUSE_COLS; c++) {
+                    const shelf = shelves[r][c];
+                    if (shelf.currentProduct === null) { // Only consider empty shelves
+                        if (shelf.type.toLowerCase() === product.type.toLowerCase()) {
+                            foundMatch = { row: r, col: c, shelf: shelf };
+                            return foundMatch; // Highest priority, return immediately
+                        }
+                        if (shelf.type === 'General' && foundGeneral === null) {
+                            foundGeneral = { row: r, col: c, shelf: shelf };
+                        }
+                        if (foundAnyEmpty === null) {
+                            foundAnyEmpty = { row: r, col: c, shelf: shelf };
+                        }
+                    }
+                }
+            }
+            return foundMatch || foundGeneral || foundAnyEmpty; // Return based on priority
+        }
+
+        // --- Theme Changer Logic ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('sun-icon');
+        const moonIcon = document.getElementById('moon-icon');
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        });
+
+        // --- Navigation Logic ---
+        document.querySelectorAll('.nav-button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active state from all buttons
+                document.querySelectorAll('.nav-button').forEach(btn => {
+                    btn.classList.remove('active', 'bg-blue-500', 'text-white');
+                    btn.classList.add('hover:bg-gray-200');
+                });
+
+                // Add active state to clicked button
+                button.classList.add('active', 'bg-blue-500', 'text-white');
+                button.classList.remove('hover:bg-gray-200');
+
+                // Hide all sections
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.classList.add('hidden');
+                    section.classList.remove('animate-fade-in'); // Remove animation class
+                });
+
+                // Show target section and add animation class
+                const targetSectionId = button.dataset.section;
+                const targetSection = document.getElementById(targetSectionId);
+                targetSection.classList.remove('hidden');
+                // Trigger reflow to restart animation
+                void targetSection.offsetWidth;
+                targetSection.classList.add('animate-fade-in');
+
+                // Update specific sections on navigation
+                if (targetSectionId === 'dashboard') {
+                    updateDashboard();
+                } else if (targetSectionId === 'warehouse-layout') {
+                    renderWarehouseGrid();
+                    renderProductInventory();
+                } else if (targetSectionId === 'product-management') {
+                    renderProductListTable();
+                } else if (targetSectionId === 'scan-product') {
+                    // Automatically start scanner when navigating to this section, if not already running
+                    if (!isScanning) {
+                        startScanner();
+                    }
+                } else {
+                    // Stop scanner if navigating away from scan-product section
+                    if (isScanning) {
+                        stopScanner();
+                    }
+                }
+            });
+        });
+
+        // Add Tailwind utility for fade-in animation
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in {
+                animation: fadeIn 0.3s ease-out forwards;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // --- Dashboard Logic ---
+        function updateDashboard() {
+            const totalProducts = products.length;
+            let occupiedShelves = 0;
+            let availableShelves = 0;
+
+            for (let r = 0; r < WAREHOUSE_ROWS; r++) {
+                for (let c = 0; c < WAREHOUSE_COLS; c++) {
+                    if (shelves[r][c].currentProduct !== null) {
+                        occupiedShelves++;
+                    } else {
+                        availableShelves++;
+                    }
+                }
+            }
+
+            document.getElementById('dashboard-total-products').textContent = totalProducts;
+            document.getElementById('dashboard-occupied-shelves').textContent = occupiedShelves;
+            document.getElementById('dashboard-available-shelves').textContent = availableShelves;
+        }
+
+        // --- Warehouse Layout (Drag & Drop) Logic ---
+        let draggedItem = null;
+
+        function renderProductInventory() {
+            const inventoryList = document.getElementById('product-inventory-list');
+            inventoryList.innerHTML = ''; // Clear existing items but keep unshelve-zone
+
+            products.forEach(product => {
+                // Check if product is currently on a shelf
+                const isOnShelf = shelves.flat().some(shelf => shelf.currentProduct && shelf.currentProduct.id === product.id);
+                if (!isOnShelf) {
+                    const productDiv = document.createElement('div');
+                    productDiv.id = `product-${product.id}`;
+                    productDiv.className = 'shelf-item bg-gray-100 p-3 rounded-lg shadow-sm cursor-grab border border-gray-200 hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2';
+                    productDiv.setAttribute('draggable', 'true');
+                    productDiv.dataset.productId = product.id;
+                    productDiv.innerHTML = `
+                        <span class="text-xl">${getTypeIcon(product.type)}</span>
+                        <div>
+                            <p class="font-semibold text-gray-800">${product.name}</p>
+                            <p class="text-sm text-gray-600">ID: ${product.id}</p>
+                            <p class="text-xs text-gray-500">${product.type}</p>
+                        </div>
+                    `;
+                    inventoryList.appendChild(productDiv);
+                }
+            });
+            // Re-add drag and drop listeners for inventory items (relevant when new items appear here)
+            addDragAndDropListeners();
+        }
+
+        function renderWarehouseGrid() {
+            const warehouseGrid = document.getElementById('warehouse-grid');
+            warehouseGrid.innerHTML = ''; // Clear existing shelves
+
+            // Set grid columns based on WAREHOUSE_COLS for large screens, adjust for smaller screens
+            warehouseGrid.style.gridTemplateColumns = `repeat(${WAREHOUSE_COLS}, minmax(0, 1fr))`;
+            warehouseGrid.className = `flex-1 bg-white rounded-xl shadow-md p-4 grid gap-4 auto-rows-min
+                                       grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-${WAREHOUSE_COLS}`;
+
+
+            for (let r = 0; r < WAREHOUSE_ROWS; r++) {
+                for (let c = 0; c < WAREHOUSE_COLS; c++) {
+                    const shelf = shelves[r][c];
+                    const shelfDiv = document.createElement('div');
+                    shelfDiv.id = `shelf-${shelf.id}`;
+                    shelfDiv.className = 'shelf-slot bg-gray-50 rounded-lg p-3 border border-gray-300 flex flex-col justify-between items-center text-center h-28 sm:h-32 transition-all duration-200 hover:border-blue-400 relative overflow-hidden';
+                    shelfDiv.dataset.row = r;
+                    shelfDiv.dataset.col = c;
+
+                    let productHtml = '';
+                    if (shelf.currentProduct) {
+                        productHtml = `
+                            <div id="product-on-shelf-${shelf.currentProduct.id}" class="shelf-item on-shelf w-full bg-blue-100 p-2 rounded-md shadow-sm cursor-grab border border-blue-300 hover:bg-blue-200 transition-colors duration-200 transform hover:scale-105 flex items-center justify-center space-x-1" draggable="true" data-product-id="${shelf.currentProduct.id}" data-current-shelf-id="${shelf.id}">
+                                <span class="text-lg">${getTypeIcon(shelf.currentProduct.type)}</span>
+                                <p class="font-semibold text-blue-800 text-sm truncate">${shelf.currentProduct.name}</p>
+                            </div>
+                        `;
+                    } else {
+                        productHtml = '<p class="text-gray-400 text-sm flex-grow flex items-center justify-center">Empty</p>';
+                    }
+
+                    shelfDiv.innerHTML = `
+                        <div class="absolute top-2 left-2 text-xs font-medium text-gray-500 flex items-center gap-1">
+                            Shelf ${shelf.id.replace('S', '')} <span class="text-base">${getTypeIcon(shelf.type)}</span>
+                        </div>
+                        ${productHtml}
+                    `;
+                    warehouseGrid.appendChild(shelfDiv);
+                }
+            }
+            addDragAndDropListeners();
+        }
+
+        function addDragAndDropListeners() {
+            // Drag Start for ALL .shelf-item elements
+            document.querySelectorAll('.shelf-item').forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedItem = e.target;
+                    e.dataTransfer.setData('text/plain', e.target.dataset.productId); // Set data for transfer
+                    // Store the ID of the shelf the product is currently on, if any
+                    e.dataTransfer.setData('text/currentShelfId', e.target.dataset.currentShelfId || '');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.target.classList.add('dragging');
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    e.target.classList.remove('dragging');
+                    draggedItem = null;
+                    // Clean up drag-over classes from all potential drop zones
+                    document.querySelectorAll('.shelf-slot, .unshelve-zone').forEach(zone => {
+                        zone.classList.remove('drag-over', 'drag-over-invalid');
+                    });
+                });
+            });
+
+            // Drag Over/Enter/Leave for Shelf Slots
+            document.querySelectorAll('.shelf-slot').forEach(slot => {
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault(); // Essential to allow drop
+                    e.dataTransfer.dropEffect = 'move';
+
+                    slot.classList.remove('drag-over', 'drag-over-invalid');
+                    if (slot.querySelector('.shelf-item.on-shelf') === null) { // Check if slot is empty
+                        slot.classList.add('drag-over');
+                    } else {
+                        slot.classList.add('drag-over-invalid');
+                    }
+                });
+
+                slot.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                    if (slot.querySelector('.shelf-item.on-shelf') === null) {
+                         slot.classList.add('drag-over');
+                    } else {
+                         slot.classList.add('drag-over-invalid');
+                    }
+                });
+
+                slot.addEventListener('dragleave', (e) => {
+                    slot.classList.remove('drag-over', 'drag-over-invalid');
+                });
+
+
+                // Drop onto Shelf Slot
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('drag-over', 'drag-over-invalid'); // Clean up feedback classes
+
+                    if (!draggedItem) return;
+
+                    const productId = e.dataTransfer.getData('text/plain');
+                    const oldShelfId = e.dataTransfer.getData('text/currentShelfId'); // Get old shelf ID
+
+                    const targetRow = parseInt(slot.dataset.row);
+                    const targetCol = parseInt(slot.dataset.col);
+                    const targetShelf = shelves[targetRow][targetCol];
+
+                    // Prevent dropping on an occupied shelf
+                    if (targetShelf.currentProduct !== null) {
+                        showMessageBox('Shelf Occupied', 'The target shelf is already occupied. Please choose an empty slot.', false);
+                        return;
+                    }
+
+                    const productToMove = products.find(p => p.id === productId);
+                    if (!productToMove) {
+                        showMessageBox('Error', 'Product not found for the dragged item.', false);
+                        return;
+                    }
+
+                    // Remove product from old shelf if it came from one
+                    if (oldShelfId) {
+                        const oldShelf = shelves.flat().find(s => s.id === oldShelfId);
+                        if (oldShelf) {
+                            oldShelf.currentProduct = null;
+                        }
+                    }
+
+                    // Place product on new shelf
+                    targetShelf.currentProduct = productToMove;
+                    showMessageBox('Product Placed', `${productToMove.name} has been placed on shelf ${targetShelf.id.replace('S', '')}.`, false);
+
+                    // Re-render the warehouse grid and inventory to reflect changes
+                    renderWarehouseGrid();
+                    renderProductInventory();
+                    updateDashboard();
+                });
+            });
+
+            // Drag Over/Enter/Leave and Drop for Unshelve Zone
+            const unshelveZone = document.getElementById('unshelve-zone');
+            unshelveZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                unshelveZone.classList.add('drag-over');
+            });
+            unshelveZone.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                unshelveZone.classList.add('drag-over');
+            });
+            unshelveZone.addEventListener('dragleave', (e) => {
+                unshelveZone.classList.remove('drag-over');
+            });
+            unshelveZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                unshelveZone.classList.remove('drag-over');
+
+                if (!draggedItem) return;
+
+                const productId = e.dataTransfer.getData('text/plain');
+                const oldShelfId = e.dataTransfer.getData('text/currentShelfId');
+
+                if (!oldShelfId) {
+                    showMessageBox('Action Blocked', 'This product is already in inventory, not on a shelf.', false);
+                    return; // Product was dragged from inventory, not a shelf
+                }
+
+                const productToUnshelve = products.find(p => p.id === productId);
+                if (!productToUnshelve) {
+                    showMessageBox('Error', 'Product not found in catalog.', false);
+                    return;
+                }
+
+                const oldShelf = shelves.flat().find(s => s.id === oldShelfId);
+                if (oldShelf && oldShelf.currentProduct && oldShelf.currentProduct.id === productId) {
+                    oldShelf.currentProduct = null; // Remove product from the shelf
+                    showMessageBox('Product Unshelved', `${productToUnshelve.name} has been removed from shelf ${oldShelfId.replace('S', '')} and returned to inventory.`, false);
+                    renderWarehouseGrid();
+                    renderProductInventory();
+                    updateDashboard();
+                } else {
+                    showMessageBox('Error', 'Failed to unshelve product. It might already be elsewhere or not on the expected shelf.', false);
+                }
+            });
+        }
+
+
+        // --- Barcode/QR Scanner Logic ---
+        let scannerVideoStream = null;
+        let animationFrameId = null;
+        let isScanning = false;
+        let scannedProductId = null; // Stores ID of last scanned product
+
+        const scannerVideo = document.getElementById('scanner-video');
+        const scannerCanvas = document.getElementById('scanner-canvas');
+        const scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+        const startScannerBtn = document.getElementById('start-scanner-btn');
+        const stopScannerBtn = document.getElementById('stop-scanner-btn');
+        const loadingMessage = document.getElementById('loading-message');
+        const scannerError = document.getElementById('scanner-error');
+
+        const scannedIdElem = document.getElementById('scanned-id').querySelector('span');
+        const scannedNameElem = document.getElementById('scanned-name').querySelector('span');
+        const scannedTypeElem = document.getElementById('scanned-type').querySelector('span');
+        const scannedRecommendationElem = document.getElementById('scanned-recommendation').querySelector('span');
+        const placeOnShelfBtn = document.getElementById('place-on-shelf-btn');
+
+        /**
+         * Initializes and starts the camera stream for scanning.
+         */
+        async function startScanner() {
+            if (isScanning) return; // Prevent multiple starts
+            isScanning = true;
+            scannerError.classList.add('hidden');
+            loadingMessage.classList.remove('hidden');
+            startScannerBtn.disabled = true;
+            stopScannerBtn.disabled = false;
+
+            try {
+                scannerVideoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                scannerVideo.srcObject = scannerVideoStream;
+                scannerVideo.setAttribute('playsinline', true); // Required for iOS
+                await scannerVideo.play();
+                loadingMessage.classList.add('hidden');
+                requestAnimationFrame(tick);
+                startQuagga(); // Start QuaggaJS for barcodes
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                scannerError.textContent = `Error accessing camera: ${err.name} - ${err.message}. Please ensure camera permissions are granted.`;
+                scannerError.classList.remove('hidden');
+                stopScanner(); // Clean up if failed
+            }
+        }
+
+        /**
+         * Stops the camera stream and scanning processes.
+         */
+        function stopScanner() {
+            if (!isScanning) return;
+            isScanning = false;
+            if (scannerVideoStream) {
+                scannerVideoStream.getTracks().forEach(track => track.stop());
+                scannerVideoStream = null;
+            }
+            scannerVideo.srcObject = null;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            stopQuagga(); // Stop QuaggaJS
+            scannerCtx.clearRect(0, 0, scannerCanvas.width, scannerCanvas.height); // Clear canvas
+
+            startScannerBtn.disabled = false;
+            stopScannerBtn.disabled = true;
+
+            // Clear scanned product details
+            scannedIdElem.textContent = '-';
+            scannedNameElem.textContent = '-';
+            scannedTypeElem.textContent = '-';
+            scannedRecommendationElem.textContent = '-';
+            placeOnShelfBtn.classList.add('hidden');
+            scannedProductId = null;
+        }
+
+        /**
+         * Main animation loop for QR code scanning.
+         */
+        function tick() {
+            if (scannerVideo.readyState === scannerVideo.HAVE_ENOUGH_DATA) {
+                scannerCanvas.height = scannerVideo.videoHeight;
+                scannerCanvas.width = scannerVideo.videoWidth;
+                scannerCtx.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+                const imageData = scannerCtx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+
+                // Attempt to decode QR code
+                const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (qrCode) {
+                    drawQrCodeBoundingBox(qrCode);
+                    handleScannedResult(qrCode.data);
+                } else {
+                    // Clear previous QR highlights if no QR detected. Redraw current video frame.
+                    scannerCtx.clearRect(0, 0, scannerCanvas.width, scannerCanvas.height);
+                    scannerCtx.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+                }
+            }
+            if (isScanning) {
+                animationFrameId = requestAnimationFrame(tick);
+            }
+        }
+
+        /**
+         * Draws the bounding box around a detected QR code.
+         * @param {Object} qrCode - The QR code object from jsQR.
+         */
+        function drawQrCodeBoundingBox(qrCode) {
+            scannerCtx.beginPath();
+            scannerCtx.lineWidth = 4;
+            scannerCtx.strokeStyle = "#4CAF50"; // Green color
+            scannerCtx.moveTo(qrCode.location.topLeftCorner.x, qrCode.location.topLeftCorner.y);
+            scannerCtx.lineTo(qrCode.location.topRightCorner.x, qrCode.location.topRightCorner.y);
+            scannerCtx.lineTo(qrCode.location.bottomRightCorner.x, qrCode.location.bottomRightCorner.y);
+            scannerCtx.lineTo(qrCode.location.bottomLeftCorner.x, qrCode.location.bottomLeftCorner.y);
+            scannerCtx.lineTo(qrCode.location.topLeftCorner.x, qrCode.location.topLeftCorner.y);
+            scannerCtx.stroke();
+        }
+
+        /**
+         * Initializes and starts QuaggaJS for barcode scanning.
+         */
+        function startQuagga() {
+            Quagga.init({
+                inputStream : {
+                    name : "Live",
+                    type : "LiveStream",
+                    target: scannerVideo, // Or document.querySelector('#scanner-video')
+                    constraints: {
+                        facingMode: "environment"
+                    }
+                },
+                decoder : {
+                    readers : ["ean_reader", "code_128_reader", "ean_8_reader", "code_39_reader", "code_39_vin_reader", "codabar_reader", "upc_reader", "upc_e_reader", "i2of5_reader"]
+                },
+                locator: {
+                    patchSize: "medium",
+                    halfSample: true
+                }
+            }, function(err) {
+                if (err) {
+                    console.error("Error initializing Quagga:", err);
+                    scannerError.textContent = `Error initializing barcode scanner: ${err.message}`;
+                    scannerError.classList.remove('hidden');
+                    return;
+                }
+                console.log("Quagga initialization finished. Ready to start");
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(result) {
+                if (result && result.codeResult && result.codeResult.code) {
+                    handleScannedResult(result.codeResult.code);
+                    // To prevent continuous scanning of the same barcode,
+                    // you might want to stop scanning for a brief moment or
+                    // implement logic to only process new unique codes.
+                }
+            });
+            // Draw detection boxes on canvas (optional, Quagga can draw itself)
+            Quagga.onProcessed(function(result) {
+                const drawingCtx = Quagga.canvas.ctx.overlay;
+                const drawingCanvas = Quagga.canvas.dom.overlay;
+                if (result) {
+                    if (result.boxes) {
+                        drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.width), parseInt(drawingCanvas.height));
+                        result.boxes.filter(function (box) {
+                            return box !== result.box;
+                        }).forEach(function (box) {
+                            Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "green", lineWidth: 2});
+                        });
+                    }
+
+                    if (result.box) {
+                        Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
+                    }
+
+                    if (result.codeResult && result.codeResult.code) {
+                        Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: "red", lineWidth: 3});
+                    }
+                }
+            });
+        }
+
+        /**
+         * Stops QuaggaJS barcode scanning.
+         */
+        function stopQuagga() {
+            try {
+                if (Quagga) {
+                     Quagga.stop();
+                     console.log("Quagga stopped.");
+                }
+            } catch (e) {
+                console.warn("Quagga was not initialized or already stopped.", e);
+            }
+        }
+
+        /**
+         * Handles the scanned QR/barcode data.
+         * @param {string} data - The scanned data.
+         */
+        function handleScannedResult(data) {
+            console.log('Scanned data:', data);
+
+            let product = null;
+            if (data.startsWith('product:')) {
+                // Assuming QR codes encode 'product:PXXX'
+                const productIdFromQr = data.substring(8);
+                product = products.find(p => p.id === productIdFromQr);
+            } else {
+                // Assume it's a barcode
+                product = products.find(p => p.barcode === data);
+            }
+
+            if (product) {
+                if (scannedProductId === product.id) {
+                    // Do nothing if the same product is scanned repeatedly
+                    return;
+                }
+                scannedProductId = product.id; // Store the ID of the newly scanned product
+                console.log('Product found:', product.name);
+                scannedIdElem.textContent = product.id;
+                scannedNameElem.textContent = product.name;
+                scannedTypeElem.textContent = product.type;
+
+                const recommendedShelf = getRecommendedShelf(product);
+                if (recommendedShelf) {
+                    let recommendationText = `Shelf ${recommendedShelf.shelf.id.replace('S','')}`;
+                    if (recommendedShelf.shelf.type.toLowerCase() === product.type.toLowerCase()) {
+                         recommendationText += ` (Optimal for ${product.type})`;
+                    } else if (recommendedShelf.shelf.type === 'General') {
+                        recommendationText += ` (General shelf available)`;
+                    } else {
+                         recommendationText += ` (Best available, shelf type is ${recommendedShelf.shelf.type})`;
+                    }
+                    scannedRecommendationElem.textContent = recommendationText;
+                    placeOnShelfBtn.classList.remove('hidden');
+                    placeOnShelfBtn.onclick = () => {
+                        // Logic to place product on recommended shelf
+                        const currentShelf = shelves.flat().find(s => s.currentProduct && s.currentProduct.id === product.id);
+                        if (currentShelf) {
+                            currentShelf.currentProduct = null; // Remove from old shelf
+                        }
+                        recommendedShelf.shelf.currentProduct = product;
+                        showMessageBox('Product Placed', `${product.name} successfully placed on recommended shelf ${recommendedShelf.shelf.id.replace('S','')}.`, false);
+                        renderWarehouseGrid();
+                        renderProductInventory();
+                        updateDashboard();
+                        stopScanner(); // Stop scanning after placement
+                    };
+                } else {
+                    scannedRecommendationElem.textContent = 'No empty shelf found. Please make space.';
+                    placeOnShelfBtn.classList.add('hidden');
+                }
+            } else {
+                console.warn('Product not found for scanned data:', data);
+                scannedIdElem.textContent = '-';
+                scannedNameElem.textContent = 'Unknown Product';
+                scannedTypeElem.textContent = '-';
+                scannedRecommendationElem.textContent = 'No matching product found in catalog.';
+                placeOnShelfBtn.classList.add('hidden');
+                scannedProductId = null; // Reset
+            }
+        }
+
+        // Event listeners for scanner buttons
+        startScannerBtn.addEventListener('click', startScanner);
+        stopScannerBtn.addEventListener('click', stopScanner);
+
+
+        // --- Product Management Logic ---
+        const addProductForm = document.getElementById('add-product-form');
+        const productListBody = document.getElementById('product-list-body');
+        const noProductsMessage = document.getElementById('no-products-message');
+        const productSearchInput = document.getElementById('product-search');
+
+
+        function renderProductListTable(filteredProducts = products) {
+            productListBody.innerHTML = ''; // Clear existing rows
+            if (filteredProducts.length === 0) {
+                noProductsMessage.classList.remove('hidden');
+                return;
+            } else {
+                noProductsMessage.classList.add('hidden');
+            }
+
+            filteredProducts.forEach(product => {
+                const row = productListBody.insertRow();
+                row.className = 'bg-white hover:bg-gray-50 transition-colors duration-150';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${product.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${product.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-product-id="${product.id}" class="edit-product-btn text-blue-600 hover:text-blue-900 mr-3 transition-colors duration-200">Edit</button>
+                        <button data-product-id="${product.id}" class="delete-product-btn text-red-600 hover:text-red-900 transition-colors duration-200">Delete</button>
+                    </td>
+                `;
+            });
+            addTableActionListeners();
+        }
+
+        function addTableActionListeners() {
+            document.querySelectorAll('.edit-product-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const productId = e.target.dataset.productId;
+                    const productToEdit = products.find(p => p.id === productId);
+                    if (productToEdit) {
+                        showMessageBox('Edit Product', `Editing product ID: ${productId} is not yet implemented. Please manually update if needed.`, false);
+                        // In a real app, this would open a modal pre-filled with data
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-product-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const productId = e.target.dataset.productId;
+                    const confirmed = await showMessageBox('Confirm Delete', `Are you sure you want to delete product ID: ${productId}? This will also remove it from any shelf.`, true);
+
+                    if (confirmed) {
+                        // Remove from products array
+                        products = products.filter(p => p.id !== productId);
+
+                        // Remove from any shelf it might be on
+                        shelves.forEach(row => {
+                            row.forEach(shelf => {
+                                if (shelf.currentProduct && shelf.currentProduct.id === productId) {
+                                    shelf.currentProduct = null;
+                                }
+                            });
+                        });
+                        showMessageBox('Deleted', `Product ID: ${productId} has been deleted.`, false);
+                        renderProductListTable();
+                        renderProductInventory(); // Update inventory list in warehouse layout
+                        renderWarehouseGrid(); // Update warehouse grid to show empty slots
+                        updateDashboard();
+                    }
+                });
+            });
+        }
+
+        addProductForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(addProductForm);
+            const newProduct = {
+                id: formData.get('id').trim(),
+                name: formData.get('name').trim(),
+                type: formData.get('type').trim(),
+                barcode: formData.get('barcode').trim() || null,
+                qr: formData.get('qr').trim() || null
+            };
+
+            if (products.some(p => p.id.toLowerCase() === newProduct.id.toLowerCase())) {
+                showMessageBox('Error', `Product ID ${newProduct.id} already exists (case-insensitive). Please use a unique ID.`, false);
+                return;
+            }
+            if (!newProduct.id || !newProduct.name || !newProduct.type) {
+                showMessageBox('Error', 'Product ID, Name, and Type are required fields.', false);
+                return;
+            }
+
+            products.push(newProduct);
+            showMessageBox('Success', `${newProduct.name} added to products!`, false);
+            addProductForm.reset();
+            renderProductListTable();
+            renderProductInventory(); // Refresh inventory list
+            updateDashboard();
+        });
+
+        productSearchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const filtered = products.filter(product =>
+                product.id.toLowerCase().includes(searchTerm) ||
+                product.name.toLowerCase().includes(searchTerm) ||
+                product.type.toLowerCase().includes(searchTerm)
+            );
+            renderProductListTable(filtered);
+        });
+
+
+        // --- Initial Load ---
+        window.onload = function() {
+            // Apply theme from localStorage or default to light
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+
+            initializeShelves(); // Set up initial shelves
+            updateDashboard(); // Update dashboard stats
+            renderWarehouseGrid(); // Render warehouse layout initially
+            renderProductInventory(); // Render product inventory
+            renderProductListTable(); // Render product list table
+            // Set initial active section (dashboard)
+            document.querySelector('.nav-button[data-section="dashboard"]').click();
+        };
+
+    </script>
+{% include "navbar.html" %}
+</body></html>

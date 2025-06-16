@@ -1,0 +1,106 @@
+
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi Retailer Hub - Walmart Hackathon</title>
+    <link rel="stylesheet" href="{% static "inventory.css" %}">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="container">
+            <h1 class="logo">Saarthi</h1>
+            <nav>
+                <ul>
+                    <li><a href="#dashboard">Dashboard</a></li>
+                    <li><a href="#products">Products</a></li>
+                    <li><a href="#warehouses">Warehouses</a></li>
+                    <li><a href="#orders">Orders</a></li>
+                </ul>
+            </nav>
+            <button class="menu-toggle" aria-label="Toggle Navigation"></button>
+        </div>
+    </header>
+
+    <main>
+        <section id="dashboard" class="hero-section">
+            <div class="container">
+                <h2>Welcome, Retailer!</h2>
+                <p>Real-time inventory and smart warehouse recommendations at your fingertips.</p>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <h3>Total Inventory Value</h3>
+                        <p id="totalInventoryValue">$XXXXX</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending Orders</h3>
+                        <p id="pendingOrders">XX</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Recommended Warehouse</h3>
+                        <p id="recommendedWarehouse">Warehouse A (Nearest)</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="products" class="product-catalog-section container">
+            <h2>Product Catalog</h2>
+            <div class="search-bar">
+                <input type="text" id="productSearch" placeholder="Search products...">
+                <button id="searchButton">Search</button>
+            </div>
+            <div class="product-grid" id="productGrid">
+                <div class="product-card skeleton">
+                    <div class="product-image-placeholder"></div>
+                    <div class="product-info">
+                        <h3 class="product-name-placeholder"></h3>
+                        <p class="product-price-placeholder"></p>
+                        <p class="product-stock-placeholder"></p>
+                    </div>
+                </div>
+                </div>
+        </section>
+
+        <section id="warehouses" class="warehouse-section container">
+            <h2>Our Warehouses</h2>
+            <div class="warehouse-map">
+                <img src="https://via.placeholder.com/600x300?text=Warehouse+Map" alt="Warehouse Locations Map">
+            </div>
+            <div class="warehouse-list" id="warehouseList">
+                </div>
+            <div class="warehouse-3d-view">
+                <h3>3D Warehouse Visualization</h3>
+                <canvas id="warehouse3DCanvas"></canvas>
+            </div>
+        </section>
+
+        <section id="orders" class="order-section container">
+            <h2>Order Management</h2>
+            <div class="order-form">
+                <input type="text" placeholder="Product ID">
+                <input type="number" placeholder="Quantity">
+                <button>Place Order</button>
+            </div>
+            <div class="recent-orders" id="recentOrders">
+                <h3>Recent Orders</h3>
+                </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Saarthi. Walmart Hackathon</p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="{% static "data.js" %}"></script>
+    <script src="{% static "three-warehouse.js" %}"></script>
+    <script src="{% static "main.js" %}"></script>
+{% include "navbar.html" %}
+</body></html>

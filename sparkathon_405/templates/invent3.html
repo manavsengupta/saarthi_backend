@@ -1,0 +1,1036 @@
+
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi Smart Warehouse</title>
+    <!-- Tailwind CSS CDN for basic utilities -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom CSS for a more polished look and animations */
+        :root {
+            --bg-color-primary: #f8f9fa;
+            --bg-color-secondary: #e9ecef;
+            --text-color-primary: #212529;
+            --text-color-secondary: #495057;
+            --border-color: #dee2e6;
+            --accent-color: #007bff;
+            --accent-color-hover: #0056b3;
+            --shelf-color: #adb5bd;
+            --shelf-color-hover: #6c757d;
+            --product-color: #6610f2;
+            --product-color-text: #ffffff;
+            --product-bg-hover: #500eaf;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --modal-bg: rgba(0, 0, 0, 0.6);
+            --success-color: #28a745;
+            --error-color: #dc3545;
+        }
+
+        .dark-mode {
+            --bg-color-primary: #2d3748;
+            --bg-color-secondary: #4a5568;
+            --text-color-primary: #e2e8f0;
+            --text-color-secondary: #cbd5e0;
+            --border-color: #a0aec0;
+            --accent-color: #63b3ed;
+            --accent-color-hover: #4299e1;
+            --shelf-color: #718096;
+            --shelf-color-hover: #4a5568;
+            --product-color: #9f7aea;
+            --product-color-text: #ffffff;
+            --product-bg-hover: #805ad5;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --modal-bg: rgba(0, 0, 0, 0.8);
+            --success-color: #48bb78;
+            --error-color: #f56565;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color-primary);
+            color: var(--text-color-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+
+        /* Main layout - sidebar and content */
+        .container-wrapper {
+            display: flex;
+            flex-direction: column; /* Default for mobile */
+            width: 100%;
+            height: 100%;
+        }
+
+        aside {
+            background-color: var(--bg-color-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            width: 100%; /* Full width on mobile */
+            box-shadow: var(--card-shadow);
+            flex-shrink: 0;
+            overflow-y: auto;
+            max-height: 50vh; /* Limit height on mobile */
+        }
+
+        main {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        @media (min-width: 768px) { /* Medium screens and up */
+            .container-wrapper {
+                flex-direction: row;
+            }
+            aside {
+                width: 300px; /* Fixed width on desktop */
+                max-height: 100vh; /* Full height on desktop */
+            }
+        }
+
+        /* Card styles */
+        .card {
+            background-color: var(--bg-color-primary);
+            border-radius: 0.75rem; /* Rounded corners */
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Button styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            color: var(--product-color-text);
+            background-color: var(--accent-color);
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-color-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: var(--shelf-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--shelf-color-hover);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--accent-color);
+            color: var(--product-color-text);
+        }
+
+        /* Form elements */
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background-color: var(--bg-color-primary);
+            color: var(--text-color-primary);
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        /* Warehouse grid */
+        #warehouse-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Responsive columns */
+            gap: 1rem;
+            min-height: 400px;
+            padding: 1rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            background-color: var(--bg-color-secondary);
+        }
+
+        .shelf {
+            background-color: var(--shelf-color);
+            border: 1px solid var(--shelf-color);
+            border-radius: 0.5rem;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Align items to the top */
+            padding: 0.5rem;
+            position: relative;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .shelf.drag-over {
+            background-color: var(--accent-color);
+            box-shadow: 0 0 0 3px var(--accent-color), inset 0 0 5px rgba(0,0,0,0.2);
+        }
+
+        .shelf h3 {
+            color: var(--product-color-text);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-item {
+            background-color: var(--product-color);
+            color: var(--product-color-text);
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.3rem;
+            margin-bottom: 0.4rem;
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            text-align: center;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s ease, background-color 0.2s ease;
+            position: relative;
+            user-select: none; /* Prevent text selection during drag */
+        }
+
+        .product-item:hover {
+            background-color: var(--product-bg-hover);
+            transform: translateY(-1px);
+        }
+
+        .product-item.dragging {
+            opacity: 0.7;
+            transform: scale(1.05);
+            cursor: grabbing;
+        }
+
+        .product-item .barcode-overlay {
+            font-size: 0.7em;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 0.2em;
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--bg-color-primary);
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: var(--card-shadow);
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-color-secondary);
+            cursor: pointer;
+        }
+
+        #scanner-video {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 0.5rem;
+            background-color: black;
+            display: block;
+            margin: 0 auto 1rem;
+        }
+
+        #scanner-canvas {
+            display: none; /* Hidden, used for processing video frames */
+        }
+
+        #scanner-result {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            text-align: center;
+            color: var(--text-color-primary);
+        }
+
+        #message-box {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--text-color-primary);
+            color: var(--bg-color-primary);
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: var(--card-shadow);
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        #message-box.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        #message-box.success {
+            background-color: var(--success-color);
+        }
+
+        #message-box.error {
+            background-color: var(--error-color);
+        }
+
+        /* Dashboard elements */
+        .metric-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            background-color: var(--bg-color-secondary);
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .metric-card h4 {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-color-secondary);
+        }
+
+        .metric-card p {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-top: 0.5rem;
+        }
+
+        /* Dark mode toggle */
+        #dark-mode-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-color-primary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        #dark-mode-toggle:hover {
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+<body class="selection:bg-blue-200 selection:text-blue-900">
+    <button id="dark-mode-toggle" aria-label="Toggle dark mode">
+        <i class="fas fa-moon"></i>
+    </button>
+    <div class="container-wrapper">
+        <!-- Sidebar -->
+        <aside class="flex flex-col gap-4">
+            <h2 class="text-2xl font-bold text-center text-accent-color mb-4">Saarthi Warehouse</h2>
+
+            <!-- Dashboard / Overview -->
+            <div class="card">
+                <h3 class="text-xl font-semibold mb-3">Warehouse Overview</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="metric-card">
+                        <h4>Total Products</h4>
+                        <p id="total-products">0</p>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Occupied Shelves</h4>
+                        <p id="occupied-shelves">0</p>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Available Shelves</h4>
+                        <p id="available-shelves">0</p>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Low Stock Items</h4>
+                        <p id="low-stock-items">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Product Section -->
+            <div class="card">
+                <h3 class="text-xl font-semibold mb-3">Add New Product</h3>
+                <form id="add-product-form">
+                    <input type="text" id="product-name" placeholder="Product Name" required>
+                    <input type="text" id="product-id" placeholder="Product ID (SKU)" required>
+                    <input type="number" id="product-quantity" placeholder="Quantity" value="1" min="1" required>
+                    <input type="text" id="product-barcode" placeholder="Barcode/QR (Optional)">
+                    <button type="submit" class="btn w-full">Add Product</button>
+                </form>
+            </div>
+
+            <!-- Product List Section -->
+            <div class="card flex-grow overflow-hidden">
+                <h3 class="text-xl font-semibold mb-3">Available Products</h3>
+                <input type="text" id="product-search" placeholder="Search products..." class="mb-3">
+                <div id="product-list" class="overflow-y-auto max-h-[calc(100vh-600px)] lg:max-h-[calc(100vh-350px)] pr-2">
+                    <!-- Products will be dynamically loaded here -->
+                    <p class="text-center text-text-secondary">No products yet. Add some!</p>
+                </div>
+            </div>
+
+            <!-- Scanner & Recommendation Actions -->
+            <div class="card flex flex-col gap-3">
+                <h3 class="text-xl font-semibold mb-3">Warehouse Actions</h3>
+                <button id="scan-barcode-btn" class="btn btn-outline w-full">
+                    <i class="fas fa-barcode mr-2"></i>Scan Barcode/QR
+                </button>
+                <button id="recommend-shelf-btn" class="btn w-full">
+                    <i class="fas fa-lightbulb mr-2"></i>Recommend Shelf
+                </button>
+                <button id="reset-warehouse-btn" class="btn btn-secondary w-full">
+                    <i class="fas fa-sync-alt mr-2"></i>Reset Warehouse
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow flex flex-col gap-6">
+            <h1 class="text-3xl font-extrabold text-center text-accent-color-hover mb-4">Smart Warehouse Dashboard</h1>
+
+            <!-- Warehouse Layout Section -->
+            <div class="card flex-grow p-6">
+                <h3 class="text-2xl font-semibold mb-4">Warehouse Layout</h3>
+                <div id="warehouse-grid" class="flex-grow">
+                    <!-- Shelves will be dynamically loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Barcode/QR Scanner Modal -->
+    <div id="scanner-modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="close-scanner-modal">&times;</button>
+            <h3 class="text-2xl font-semibold mb-4 text-center">Scan Barcode / QR Code</h3>
+            <video id="scanner-video" autoplay playsinline></video>
+            <canvas id="scanner-canvas"></canvas>
+            <p id="scanner-result" class="text-lg font-mono text-center break-all">Scanning...</p>
+            <button id="stop-scanner-btn" class="btn btn-secondary w-full mt-4">Stop Scan</button>
+        </div>
+    </div>
+
+    <!-- Global Message Box -->
+    <div id="message-box" class="rounded-lg shadow-lg px-6 py-3"></div>
+
+    <!-- jsQR library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.1.0/dist/jsQR.min.js"></script>
+    <script>
+        // --- Global State Management ---
+        let products = [];
+        let shelves = [];
+        const NUM_SHELVES = 12; // Example: 12 shelves in the warehouse
+
+        // DOM Elements
+        const warehouseGrid = document.getElementById('warehouse-grid');
+        const productListDiv = document.getElementById('product-list');
+        const addProductForm = document.getElementById('add-product-form');
+        const productNameInput = document.getElementById('product-name');
+        const productIdInput = document.getElementById('product-id');
+        const productQuantityInput = document.getElementById('product-quantity');
+        const productBarcodeInput = document.getElementById('product-barcode');
+        const productSearchInput = document.getElementById('product-search');
+
+        const scanBarcodeBtn = document.getElementById('scan-barcode-btn');
+        const recommendShelfBtn = document.getElementById('recommend-shelf-btn');
+        const resetWarehouseBtn = document.getElementById('reset-warehouse-btn');
+
+        const scannerModal = document.getElementById('scanner-modal');
+        const scannerVideo = document.getElementById('scanner-video');
+        const scannerCanvas = document.getElementById('scanner-canvas');
+        const scannerResult = document.getElementById('scanner-result');
+        const closeScannerModalBtn = document.getElementById('close-scanner-modal');
+        const stopScannerBtn = document.getElementById('stop-scanner-btn');
+        const messageBox = document.getElementById('message-box');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+        const totalProductsMetric = document.getElementById('total-products');
+        const occupiedShelvesMetric = document.getElementById('occupied-shelves');
+        const availableShelvesMetric = document.getElementById('available-shelves');
+        const lowStockItemsMetric = document.getElementById('low-stock-items');
+
+        let videoStream = null;
+        let animationFrameId = null;
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a transient message to the user.
+         * @param {string} message - The message to display.
+         * @param {string} type - 'success', 'error', or 'info'.
+         * @param {number} duration - How long the message should be visible in ms.
+         */
+        function showMessage(message, type = 'info', duration = 3000) {
+            messageBox.textContent = message;
+            messageBox.className = 'rounded-lg shadow-lg px-6 py-3'; // Reset classes
+            messageBox.classList.add('show', type);
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, duration);
+        }
+
+        /**
+         * Generates a unique ID (simple for demo purposes).
+         * @returns {string} Unique ID.
+         */
+        function generateUniqueId() {
+            return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        // --- Data Persistence (localStorage) ---
+
+        /** Loads data from localStorage. */
+        function loadState() {
+            const storedProducts = localStorage.getItem('saarthiProducts');
+            const storedShelves = localStorage.getItem('saarthiShelves');
+            if (storedProducts) {
+                products = JSON.parse(storedProducts);
+            }
+            if (storedShelves) {
+                shelves = JSON.parse(storedShelves);
+            } else {
+                initializeShelves();
+            }
+        }
+
+        /** Saves current data to localStorage. */
+        function saveState() {
+            localStorage.setItem('saarthiProducts', JSON.stringify(products));
+            localStorage.setItem('saarthiShelves', JSON.stringify(shelves));
+            updateDashboardMetrics();
+        }
+
+        // --- Warehouse and Product Rendering ---
+
+        /** Initializes shelves if not loaded from storage. */
+        function initializeShelves() {
+            shelves = Array.from({ length: NUM_SHELVES }, (_, i) => ({
+                id: `shelf-${i + 1}`,
+                name: `Shelf ${i + 1}`,
+                products: [] // Products stored by their ID
+            }));
+        }
+
+        /** Renders all shelves into the warehouse grid. */
+        function renderShelves() {
+            warehouseGrid.innerHTML = '';
+            shelves.forEach(shelf => {
+                const shelfDiv = document.createElement('div');
+                shelfDiv.classList.add('shelf', 'rounded-lg', 'shadow-md');
+                shelfDiv.id = shelf.id;
+                shelfDiv.innerHTML = `<h3>${shelf.name}</h3>`;
+                shelfDiv.setAttribute('data-shelf-id', shelf.id);
+
+                // Add drag and drop event listeners
+                shelfDiv.addEventListener('dragover', handleDragOver);
+                shelfDiv.addEventListener('drop', handleDrop);
+                shelfDiv.addEventListener('dragleave', handleDragLeave);
+
+                // Render products on this shelf
+                shelf.products.forEach(productId => {
+                    const product = products.find(p => p.id === productId);
+                    if (product) {
+                        shelfDiv.appendChild(createProductElement(product));
+                    }
+                });
+                warehouseGrid.appendChild(shelfDiv);
+            });
+        }
+
+        /**
+         * Creates a draggable product HTML element.
+         * @param {object} product - The product object.
+         * @returns {HTMLElement} The product div element.
+         */
+        function createProductElement(product) {
+            const productDiv = document.createElement('div');
+            productDiv.classList.add('product-item', 'rounded-md', 'shadow-sm');
+            productDiv.setAttribute('draggable', 'true');
+            productDiv.setAttribute('data-product-id', product.id);
+            productDiv.innerHTML = `
+                <span>${product.name}</span>
+                <span class="barcode-overlay">${product.barcode || product.skuId}</span>
+                <span class="product-quantity-display">Qty: ${product.quantity}</span>
+            `;
+            productDiv.addEventListener('dragstart', handleDragStart);
+            return productDiv;
+        }
+
+        /** Renders the list of available products in the sidebar. */
+        function renderProductList(filteredProducts = products) {
+            productListDiv.innerHTML = '';
+            if (filteredProducts.length === 0) {
+                productListDiv.innerHTML = '<p class="text-center text-text-secondary">No products found.</p>';
+                return;
+            }
+            filteredProducts.forEach(product => {
+                // Only add to available list if not currently on a shelf
+                const isOnShelf = shelves.some(shelf => shelf.products.includes(product.id));
+                if (!isOnShelf) {
+                    productListDiv.appendChild(createProductElement(product));
+                }
+            });
+            if (productListDiv.innerHTML === '') { // If all products are on shelves
+                productListDiv.innerHTML = '<p class="text-center text-text-secondary">All products are on shelves. Drag them back to move!</p>';
+            }
+        }
+
+        // --- Dashboard Metrics Update ---
+
+        /** Updates the dashboard metrics based on current state. */
+        function updateDashboardMetrics() {
+            totalProductsMetric.textContent = products.length;
+            const occupied = shelves.filter(shelf => shelf.products.length > 0).length;
+            occupiedShelvesMetric.textContent = occupied;
+            availableShelvesMetric.textContent = NUM_SHELVES - occupied;
+            const lowStock = products.filter(p => p.quantity < 5).length; // Example threshold
+            lowStockItemsMetric.textContent = lowStock;
+        }
+
+        // --- Drag and Drop Handlers ---
+
+        let draggedProductId = null;
+        let originalParentShelfId = null; // To track where the product came from
+
+        /**
+         * Handles the start of a drag operation.
+         * @param {DragEvent} e - The drag event.
+         */
+        function handleDragStart(e) {
+            draggedProductId = e.target.dataset.productId;
+            // Store original parent shelf ID if the product is on a shelf
+            originalParentShelfId = e.target.closest('.shelf')?.dataset.shelfId || null;
+            e.dataTransfer.setData('text/plain', draggedProductId);
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.classList.add('dragging');
+        }
+
+        /**
+         * Handles elements being dragged over a drop target.
+         * @param {DragEvent} e - The drag event.
+         */
+        function handleDragOver(e) {
+            e.preventDefault(); // Essential to allow dropping
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        /**
+         * Handles a dragged element leaving a drop target.
+         * @param {DragEvent} e - The drag event.
+         */
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        /**
+         * Handles an element being dropped onto a target.
+         * @param {DragEvent} e - The drop event.
+         */
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            const productId = e.dataTransfer.getData('text/plain');
+            const targetShelfId = e.currentTarget.dataset.shelfId; // Target shelf ID
+
+            // Find the product being dragged
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            // Remove product from its original location (shelf or product list)
+            if (originalParentShelfId) {
+                const originalShelf = shelves.find(s => s.id === originalParentShelfId);
+                if (originalShelf) {
+                    originalShelf.products = originalShelf.products.filter(pId => pId !== productId);
+                }
+            }
+
+            // Add product to the target shelf
+            const targetShelf = shelves.find(s => s.id === targetShelfId);
+            if (targetShelf && !targetShelf.products.includes(productId)) { // Prevent duplicates
+                targetShelf.products.push(productId);
+                showMessage(`Moved ${product.name} to ${targetShelf.name}`, 'success');
+            } else if (targetShelf.products.includes(productId)) {
+                showMessage(`${product.name} is already on ${targetShelf.name}`, 'info');
+            }
+
+            // If dropped back to product list area, remove from shelf
+            if (!targetShelfId && originalParentShelfId) { // Dropped outside a shelf, assume back to list
+                const originalShelf = shelves.find(s => s.id === originalParentShelfId);
+                if (originalShelf) {
+                    originalShelf.products = originalShelf.products.filter(pId => pId !== productId);
+                    showMessage(`Removed ${product.name} from shelf`, 'info');
+                }
+            }
+
+            // Update the UI and save state
+            renderShelves();
+            renderProductList(); // Re-render product list to show availability
+            saveState();
+
+            // Clean up drag state
+            if (e.target.classList.contains('dragging')) {
+                e.target.classList.remove('dragging');
+            }
+            draggedProductId = null;
+            originalParentShelfId = null;
+        }
+
+        // Global drop handler for dropping outside shelves (to return to product list)
+        document.body.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop outside specific shelves
+        });
+
+        document.body.addEventListener('drop', (e) => {
+            // Check if drop occurred on the body and not on a shelf or product item
+            if (e.target.closest('.shelf') || e.target.closest('.product-item')) {
+                return; // Handled by shelf drop or product dragend
+            }
+
+            if (draggedProductId && originalParentShelfId) {
+                // If a product was being dragged from a shelf and dropped on body
+                const product = products.find(p => p.id === draggedProductId);
+                if (!product) return;
+
+                const originalShelf = shelves.find(s => s.id === originalParentShelfId);
+                if (originalShelf) {
+                    originalShelf.products = originalShelf.products.filter(pId => pId !== draggedProductId);
+                    showMessage(`Returned ${product.name} to available products`, 'info');
+                    renderShelves();
+                    renderProductList();
+                    saveState();
+                }
+            }
+            // Clean up drag state
+            if (document.querySelector('.dragging')) {
+                document.querySelector('.dragging').classList.remove('dragging');
+            }
+            draggedProductId = null;
+            originalParentShelfId = null;
+        });
+
+        document.body.addEventListener('dragend', (e) => {
+            // This handles cleanup if drag was cancelled (e.g., dropped outside window)
+            if (e.target.classList.contains('dragging')) {
+                e.target.classList.remove('dragging');
+            }
+            // Reset drag state variables regardless
+            draggedProductId = null;
+            originalParentShelfId = null;
+        });
+
+        // --- Product Management ---
+
+        /** Adds a new product to the system. */
+        addProductForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = productNameInput.value.trim();
+            const skuId = productIdInput.value.trim();
+            const quantity = parseInt(productQuantityInput.value, 10);
+            const barcode = productBarcodeInput.value.trim();
+
+            if (!name || !skuId || isNaN(quantity) || quantity <= 0) {
+                showMessage('Please fill in all product details correctly.', 'error');
+                return;
+            }
+
+            if (products.some(p => p.skuId === skuId)) {
+                showMessage('Product with this ID already exists!', 'error');
+                return;
+            }
+
+            const newProduct = {
+                id: generateUniqueId(),
+                name,
+                skuId,
+                quantity,
+                barcode: barcode || skuId // Use SKU as barcode if not provided
+            };
+            products.push(newProduct);
+            saveState();
+            renderProductList(); // Update product list
+            showMessage(`Product "${name}" added!`, 'success');
+            addProductForm.reset();
+        });
+
+        /** Filters product list based on search input. */
+        productSearchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = products.filter(p =>
+                p.name.toLowerCase().includes(searchTerm) ||
+                p.skuId.toLowerCase().includes(searchTerm) ||
+                p.barcode.toLowerCase().includes(searchTerm)
+            );
+            renderProductList(filtered);
+        });
+
+        // --- Barcode/QR Code Scanning ---
+
+        /** Opens the scanner modal and starts the camera. */
+        scanBarcodeBtn.addEventListener('click', () => {
+            scannerModal.classList.add('show');
+            scannerResult.textContent = 'Scanning...';
+            startScanner();
+        });
+
+        /** Closes the scanner modal and stops the camera. */
+        closeScannerModalBtn.addEventListener('click', () => {
+            stopScanner();
+            scannerModal.classList.remove('show');
+        });
+
+        /** Stops the scanner explicitly. */
+        stopScannerBtn.addEventListener('click', () => {
+            stopScanner();
+            scannerResult.textContent = 'Scan stopped.';
+        });
+
+        /** Initializes and starts the webcam scanner. */
+        async function startScanner() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); // Prefer rear camera
+                scannerVideo.srcObject = videoStream;
+                scannerVideo.setAttribute('playsinline', 'true'); // Required for iOS
+                scannerVideo.play();
+                requestAnimationFrame(tick);
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                showMessage("Could not access camera. Please allow camera permissions.", 'error');
+                scannerResult.textContent = 'Camera access denied or error.';
+            }
+        }
+
+        /** Stops the webcam scanner. */
+        function stopScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                scannerVideo.srcObject = null;
+                videoStream = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        /** Continuously scans for QR/barcodes in video stream. */
+        function tick() {
+            if (scannerVideo.readyState === scannerVideo.HAVE_ENOUGH_DATA) {
+                scannerCanvas.height = scannerVideo.videoHeight;
+                scannerCanvas.width = scannerVideo.videoWidth;
+                const ctx = scannerCanvas.getContext('2d');
+                ctx.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+                const imageData = ctx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    // QR/Barcode found
+                    const scannedCode = code.data;
+                    scannerResult.textContent = `Scanned: ${scannedCode}`;
+                    stopScanner(); // Stop scanning once a code is found
+                    scannerModal.classList.remove('show');
+
+                    // Process the scanned code: find matching product
+                    const matchingProduct = products.find(p => p.barcode === scannedCode || p.skuId === scannedCode);
+                    if (matchingProduct) {
+                        showMessage(`Scanned "${matchingProduct.name}" (ID: ${matchingProduct.skuId}).`, 'success');
+                        // Potentially highlight product or show details
+                    } else {
+                        showMessage(`Scanned code "${scannedCode}" doesn't match any product.`, 'info');
+                        // Option to add new product with this barcode
+                    }
+                }
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        // --- Smart Warehouse Recommendation System ---
+
+        /**
+         * Recommends the best shelf for a new product or re-organizing.
+         * Simple heuristic: find the first empty shelf. If none, find the least occupied.
+         */
+        recommendShelfBtn.addEventListener('click', () => {
+            const emptyShelf = shelves.find(s => s.products.length === 0);
+            if (emptyShelf) {
+                showMessage(`Recommendation: Place new items on ${emptyShelf.name} (it's empty)!`, 'info');
+                // Highlight the shelf visually
+                const shelfDiv = document.getElementById(emptyShelf.id);
+                shelfDiv.style.outline = '3px solid var(--accent-color)';
+                shelfDiv.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    shelfDiv.style.outline = 'none';
+                    shelfDiv.style.transform = 'scale(1)';
+                }, 2000);
+            } else {
+                // Find least occupied shelf
+                const leastOccupiedShelf = shelves.reduce((prev, current) => {
+                    return (prev.products.length < current.products.length) ? prev : current;
+                });
+                showMessage(`Recommendation: ${leastOccupiedShelf.name} is the least occupied with ${leastOccupiedShelf.products.length} items.`, 'info');
+                const shelfDiv = document.getElementById(leastOccupiedShelf.id);
+                shelfDiv.style.outline = '3px solid var(--accent-color)';
+                shelfDiv.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    shelfDiv.style.outline = 'none';
+                    shelfDiv.style.transform = 'scale(1)';
+                }, 2000);
+            }
+        });
+
+        // --- Other Features ---
+
+        /** Resets the entire warehouse state. */
+        resetWarehouseBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the entire warehouse? This cannot be undone.')) {
+                products = [];
+                initializeShelves();
+                saveState();
+                renderShelves();
+                renderProductList();
+                showMessage('Warehouse reset successfully!', 'success');
+            }
+        });
+
+        /** Dark Mode Toggle */
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('saarthiDarkMode', isDarkMode);
+            darkModeToggle.innerHTML = isDarkMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        });
+
+        /** Applies dark mode preference on load. */
+        function applyDarkModePreference() {
+            const savedDarkMode = localStorage.getItem('saarthiDarkMode');
+            if (savedDarkMode === 'true') {
+                document.body.classList.add('dark-mode');
+                darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            } else {
+                darkModeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            }
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            applyDarkModePreference();
+            loadState(); // Load existing data or initialize
+            renderShelves(); // Render the shelves
+            renderProductList(); // Render the list of available products
+            updateDashboardMetrics(); // Update dashboard metrics on load
+        });
+
+        // Add a global event listener to handle drops onto the product list sidebar itself
+        // This is a fallback for returning items to the "available products" list
+        productListDiv.addEventListener('dragover', handleDragOver); // Allow drop
+        productListDiv.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            if (draggedProductId && originalParentShelfId) {
+                const product = products.find(p => p.id === draggedProductId);
+                if (!product) return;
+
+                const originalShelf = shelves.find(s => s.id === originalParentShelfId);
+                if (originalShelf) {
+                    originalShelf.products = originalShelf.products.filter(pId => pId !== draggedProductId);
+                    showMessage(`Returned ${product.name} to available products`, 'info');
+                    renderShelves(); // Update shelves to reflect product removal
+                    renderProductList(); // Update product list to show product now available
+                    saveState();
+                }
+            }
+            if (document.querySelector('.dragging')) {
+                document.querySelector('.dragging').classList.remove('dragging');
+            }
+            draggedProductId = null;
+            originalParentShelfId = null;
+        });
+        productListDiv.addEventListener('dragleave', handleDragLeave);
+    </script>
+{% include "navbar.html" %}
+</body></html>

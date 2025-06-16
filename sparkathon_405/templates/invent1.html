@@ -1,0 +1,193 @@
+
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi Retailer - Smart Walmart Store</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="{% static "invent1.css" %}">
+</head>
+<body class="antialiased">
+    <div class="min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <header class="w-full max-w-4xl text-center mb-10 animate-fadeIn">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-green-400 mb-4 tracking-tight">
+                Saarthi Retailer
+            </h1>
+            <p class="text-lg sm:text-xl text-blue-200">
+                Smart Walmart Store Recommendation System
+            </p>
+            <div class="mt-6 border-b border-blue-700 pb-4"></div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- 3D Walmart Store Visualization -->
+            <section class="lg:col-span-2 bg-blue-900 p-6 rounded-xl shadow-lg animate-fadeIn delay-100">
+                <h2 class="text-2xl font-bold text-blue-300 mb-4">Walmart Store 3D Visualization (India)</h2>
+                <div id="store-3d-container" class="relative">
+                    <!-- The Three.js canvas will be appended here -->
+                    <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center bg-blue-900/80 z-10 rounded-xl">
+                        <svg class="animate-spin h-10 w-10 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="ml-3 text-lg text-blue-200">Loading 3D Store Model...</p>
+                    </div>
+                </div>
+                <p class="text-sm text-blue-400 mt-4">
+                    Drag your mouse to rotate and explore the store interior. Scroll to zoom.
+                </p>
+            </section>
+
+            <!-- Real-time Inventory Overview -->
+            <section class="lg:col-span-1 bg-blue-900 p-6 rounded-xl shadow-lg animate-fadeIn delay-200">
+                <h2 class="text-2xl font-bold text-blue-300 mb-4">Real-time Store Overview</h2>
+                <div class="space-y-4">
+                    <div class="bg-blue-800 p-4 rounded-lg flex justify-between items-center animate-pulse-light">
+                        <span class="text-blue-200">Current Footfall:</span>
+                        <span id="current-footfall" class="text-green-300 text-xl font-semibold">120</span>
+                    </div>
+                     <div class="bg-blue-800 p-4 rounded-lg flex justify-between items-center">
+                        <span class="text-blue-200">Total Products in Store:</span>
+                        <span id="total-products" class="text-blue-200 text-xl font-semibold">25000</span>
+                    </div>
+                    <div class="bg-blue-800 p-4 rounded-lg flex justify-between items-center">
+                        <span class="text-blue-200">Checkout Queue Length:</span>
+                        <span id="checkout-queue" class="text-orange-300 text-xl font-semibold">5 people</span>
+                    </div>
+                    <div class="bg-blue-800 p-4 rounded-lg">
+                        <p class="text-blue-200 mb-2">High Demand Categories:</p>
+                        <ul id="high-demand-categories" class="text-sm text-yellow-300 list-disc pl-5 space-y-1">
+                            <li>Electronics (Fast Moving)</li>
+                            <li>Fresh Produce (High Volume)</li>
+                        </ul>
+                    </div>
+                    <div class="bg-blue-800 p-4 rounded-lg">
+                        <p class="text-blue-200 mb-2">Low Stock Alerts (Store Floor):</p>
+                        <ul id="low-stock-alerts-store" class="text-sm text-red-300 list-disc pl-5 space-y-1">
+                            <li>Milk (Dairy Section)</li>
+                        </ul>
+                    </div>
+                    <button id="refresh-store-data-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        Refresh Store Data
+                    </button>
+                </div>
+            </section>
+
+            <!-- Smart Recommendation System -->
+            <section class="lg:col-span-3 bg-blue-900 p-6 rounded-xl shadow-lg animate-fadeIn delay-300">
+                <h2 class="text-2xl font-bold text-blue-300 mb-4">Smart Store Recommendations</h2>
+                <p class="text-blue-200 mb-4">
+                    Leveraging real-time data for optimized operations:
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-blue-800 p-4 rounded-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-teal-300 mb-2">Cost Optimization</h3>
+                            <p id="cost-recommendation" class="text-blue-300 text-sm">
+                                Suggest re-ordering <strong class="text-white">"Beverages"</strong> from Supplier A (cost-efficient) due to bulk discount.
+                            </p>
+                        </div>
+                        <button class="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Apply Suggestion
+                        </button>
+                    </div>
+                    <div class="bg-blue-800 p-4 rounded-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-purple-300 mb-2">Delivery Efficiency</h3>
+                            <p id="delivery-recommendation" class="text-blue-300 text-sm">
+                                Optimize delivery route for "Perishable Goods" to reduce transit time by <strong class="text-white">15 minutes</strong>.
+                            </p>
+                        </div>
+                        <button class="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Plan Route
+                        </button>
+                    </div>
+                     <div class="bg-blue-800 p-4 rounded-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-orange-300 mb-2">Operational Efficiency</h3>
+                            <p id="efficiency-recommendation" class="text-blue-300 text-sm">
+                                Re-allocate <strong class="text-white">2 staff</strong> to checkout counters during peak hours (18:00-20:00) to reduce wait times.
+                            </p>
+                        </div>
+                        <button class="mt-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Adjust Staffing
+                        </button>
+                    </div>
+                    <div class="bg-blue-800 p-4 rounded-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-pink-300 mb-2">Stock Management</h3>
+                            <p id="stock-recommendation" class="text-blue-300 text-sm">
+                                Replenish <strong class="text-white">"Electronics"</strong> section (Area A) by <strong class="text-white">30%</strong> based on predicted sales spikes.
+                            </p>
+                        </div>
+                        <button class="mt-4 bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Request Stock
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="item-search" placeholder="Search for item or scenario recommendations..."
+                           class="flex-grow p-3 rounded-lg bg-blue-800 border border-blue-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-blue-100 placeholder-blue-300">
+                    <button id="get-recommendation-btn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        Get Smart Recommendation
+                    </button>
+                </div>
+                <div id="search-result" class="mt-4 p-4 bg-blue-800 rounded-lg hidden">
+                    <p class="text-green-300 font-semibold mb-2">Recommendation for <span id="searched-item"></span>:</p>
+                    <p id="item-recommendation-text" class="text-blue-300"></p>
+                </div>
+            </section>
+
+            <!-- Delivery Optimization with Warehouse Map -->
+            <section class="lg:col-span-3 bg-blue-900 p-6 rounded-xl shadow-lg animate-fadeIn delay-400">
+                <h2 class="text-2xl font-bold text-blue-300 mb-4">Delivery Optimization: Warehouse Layout & Faster Delivery Paths</h2>
+                <p class="text-blue-200 mb-4">
+                    Visualize warehouse zones and recommended paths for quickest delivery.
+                </p>
+                <div class="flex flex-col md:flex-row gap-6 items-center">
+                    <div class="md:w-2/3 w-full">
+                        <canvas id="warehouse-map-canvas"></canvas>
+                    </div>
+                    <div class="md:w-1/3 w-full space-y-4">
+                        <div class="bg-blue-800 p-4 rounded-lg">
+                            <h3 class="text-xl font-semibold text-yellow-300 mb-2">Current Delivery Tip:</h3>
+                            <p id="delivery-map-tip" class="text-blue-300 text-sm">
+                                For faster delivery of "Electronics," pick from <strong class="text-white">Zone A</strong>. Estimated saving: <strong class="text-white">5 minutes</strong> per order.
+                            </p>
+                        </div>
+                        <button id="highlight-path-btn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Highlight Fastest Path
+                        </button>
+                        <button id="next-delivery-tip-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                            Next Delivery Tip
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="w-full max-w-4xl text-center mt-12 py-6 border-t border-blue-700 text-blue-500 text-sm animate-fadeIn delay-500">
+            <p>&copy; 2025 Saarthi Retailer. Powered by Walmart Hackathon Team.</p>
+        </footer>
+    </div>
+
+    <!-- Link to external JavaScript file -->
+    <script src="{% static "invent1.js" %}"></script>
+{% include "navbar.html" %}
+</body></html>

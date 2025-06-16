@@ -1,0 +1,68 @@
+
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarthi Executive Portal - Smart Fulfillment</title>
+    <!-- Tailwind CSS CDN for utility-first styling and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link to external stylesheet -->
+    <link rel="stylesheet" href="{% static "invent2.css" %}">
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- Left Section: Order Input & Analysis Form -->
+        <div class="w-full md:w-1/2 flex flex-col justify-start">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-gray-100 mb-6 text-center md:text-left">
+                Order Fulfillment & Delivery Recommendation
+            </h1>
+            <p class="text-gray-300 mb-8 text-center md:text-left leading-relaxed">
+                Utilize this advanced portal to quickly analyze customer orders, identify items in nearby warehouses, and recommend optimal local delivery partnerships for enhanced efficiency.
+            </p>
+
+            <!-- Customer Order Item Input -->
+            <div class="mb-6">
+                <label for="itemInput" class="block text-gray-200 text-sm font-semibold mb-2">Customer Order Item</label>
+                <input type="text" id="itemInput" placeholder="e.g., Laptop, T-shirt, Groceries"
+                       class="w-full px-4 py-3 rounded-lg focus:outline-none">
+            </div>
+
+            <!-- Customer Delivery Location Input -->
+            <div class="mb-8">
+                <label for="locationInput" class="block text-gray-200 text-sm font-semibold mb-2">Customer Delivery Location</label>
+                <input type="text" id="locationInput" placeholder="e.g., San Francisco, Chicago, New York"
+                       class="w-full px-4 py-3 rounded-lg focus:outline-none">
+                <p class="text-xs text-gray-400 mt-2">
+                    Tip: Try "San Francisco" or "Chicago" for a local delivery partner match.
+                </p>
+            </div>
+
+            <!-- Analyze Button -->
+            <button id="analyzeOrderBtn"
+                    class="btn-primary w-full text-white font-bold py-3.5 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Analyze Delivery Route
+            </button>
+        </div>
+
+        <!-- Right Section: Recommendation Results Display -->
+        <div class="w-full md:w-1/2 flex flex-col justify-center">
+            <h2 class="text-2xl md:text-3xl font-extrabold text-gray-100 mb-6 text-center md:text-left">
+                Fulfillment & Delivery Insights
+            </h2>
+            <div id="resultsContainer" class="rounded-xl p-8 min-h-[200px] flex items-center justify-center text-center bg-initial">
+                <p class="text-gray-300 text-lg">Enter order details to analyze fulfillment and delivery options.</p>
+                <div class="background-texture"></div> <!-- Background texture overlay -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Link to external JavaScript file -->
+    <script src="{% static "invent2.js" %}"></script>
+{% include "navbar.html" %}
+</body></html>

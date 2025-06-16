@@ -1,0 +1,303 @@
+/* Custom styles for fonts, animations, and specific elements */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at top left, #1a202c, #101418); /* Deep, dark radial gradient */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1.5rem;
+    perspective: 1800px; /* Increased global 3D perspective */
+    color: #e2e8f0; /* Light text for dark background */
+}
+
+/* Initial page load animation for the main container */
+@keyframes fadeInScaleUp {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(40px);
+        filter: blur(5px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
+.container {
+    max-width: 1024px;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); /* Dark, slightly translucent gradient */
+    border-radius: 1.5rem; /* More rounded */
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+    padding: 3.5rem; /* Increased padding */
+    display: flex;
+    flex-direction: column;
+    gap: 3rem; /* Increased gap */
+    opacity: 0;
+    animation: fadeInScaleUp 1s ease-out forwards; /* Longer, smoother load animation */
+    animation-delay: 0.3s;
+    transition: transform 0.5s ease-out, box-shadow 0.5s ease-out; /* Smooth transition for tilt and shadow */
+    transform-style: preserve-3d;
+    border: 1px solid rgba(45, 55, 72, 0.8); /* Subtle dark border */
+}
+
+.container:hover {
+    transform: rotateY(3deg) rotateX(2deg) translateY(-8px) translateZ(20px); /* More pronounced tilt and lift */
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(72, 187, 120, 0.2); /* Enhanced shadow with subtle glow */
+}
+
+/* Responsive layout for medium and larger screens */
+@media (min-width: 768px) {
+    .container {
+        flex-direction: row;
+    }
+}
+
+/* Input field focus glow and transition effects */
+input {
+    background-color: rgba(30, 41, 59, 0.7); /* Darker input background */
+    border: 1px solid rgba(74, 85, 104, 0.5); /* Muted border */
+    color: #e2e8f0; /* Light text */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease, background-color 0.3s ease;
+}
+input::placeholder {
+    color: #a0aec0; /* Lighter placeholder text */
+    opacity: 0.7;
+}
+input:focus {
+    border-color: #4299e1; /* Blue-400 */
+    box-shadow: 0 0 0 5px rgba(66, 153, 225, 0.4); /* Wider, brighter ring */
+    transform: translateY(-3px); /* More pronounced lift on focus */
+    background-color: rgba(30, 41, 59, 1); /* Solid on focus */
+}
+input:hover {
+    transform: translateY(-2px); /* Slight lift on hover */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* Deeper shadow on hover */
+}
+
+
+/* --- Custom Animations --- */
+
+/* Pulsating animation for the success message/badge */
+@keyframes pulse {
+    0% {
+        transform: scale(1) translateZ(0);
+        box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.8); /* Teal-ish glow */
+    }
+    70% {
+        transform: scale(1.08) translateZ(15px); /* More pop out */
+        box-shadow: 0 0 0 30px rgba(110, 231, 183, 0); /* Wider, fading glow */
+    }
+    100% {
+        transform: scale(1) translateZ(0);
+        box-shadow: 0 0 0 0 rgba(110, 231, 183, 0);
+    }
+}
+
+.animate-pulse-custom {
+    animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; /* Smoother, longer pulse */
+}
+
+/* General fade in and slide up animation for sequential elements, now with more Z-depth */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) translateZ(-20px); /* Start further back and lower */
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) translateZ(10px); /* Pop out more */
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; /* Smoother, longer ease */
+    opacity: 0;
+}
+
+/* Pop-in animation for emphasized blocks/titles, now with more initial depth */
+@keyframes popIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.6) translateZ(-100px); /* Start much further back */
+    }
+    80% {
+        opacity: 1;
+        transform: scale(1.08) translateZ(20px); /* More significant pop out */
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateZ(0);
+    }
+}
+
+.animate-pop-in {
+    animation: popIn 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+}
+
+/* Zoom-in animation for buttons, now with more initial depth */
+@keyframes zoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.7) translateZ(-40px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateZ(0);
+    }
+}
+
+.animate-zoom-in {
+    animation: zoomIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; /* Smoother, bouncier zoom */
+    opacity: 0;
+}
+
+/* Button hover and active effects */
+.btn-primary {
+    transition: all 0.3s ease-in-out; /* Smoother transitions */
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+    background: linear-gradient(90deg, #4299e1, #63b3ed); /* Blue gradient */
+    border: 1px solid #4299e1;
+    box-shadow: 0 5px 15px rgba(66, 153, 225, 0.3);
+}
+.btn-primary:hover {
+    transform: translateY(-6px) scale(1.02) translateZ(15px); /* More lift, enlarge, and pop out */
+    box-shadow: 0 15px 40px rgba(66, 153, 225, 0.5), 0 0 20px rgba(66, 153, 225, 0.4); /* Stronger glow */
+    background: linear-gradient(90deg, #63b3ed, #4299e1); /* Reverse gradient on hover */
+}
+.btn-primary:active {
+    transform: translateY(-2px) scale(0.98) translateZ(0); /* More pronounced press down */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Spinner animation combined with a more organic pulse for loading */
+.spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.spinner {
+    border: 7px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #4299e1; /* Blue-400 */
+    border-radius: 50%;
+    width: 70px; /* Larger spinner */
+    height: 70px;
+    animation: spin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    filter: drop-shadow(0 0 10px rgba(66, 153, 225, 0.6)); /* Brighter glow */
+}
+
+/* Pulsating effect for the spinner message - more natural */
+@keyframes spinner-pulse {
+    0%, 100% { opacity: 0.9; transform: scale(1) translateZ(0); }
+    50% { opacity: 1; transform: scale(1.04) translateZ(8px); }
+}
+.spinner-text {
+    color: #90cdf4; /* Lighter blue for text */
+    animation: spinner-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- NEW: Enhanced Results Container Backgrounds, Shadows & Hover --- */
+/* Common styles for results container */
+#resultsContainer {
+    border-radius: 1.5rem;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: background 0.8s ease-in-out, border-color 0.8s ease-in-out, box-shadow 0.8s ease-in-out, transform 0.4s ease-out; /* Longer, smoother transitions */
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(74, 85, 104, 0.4); /* Subtle initial shadow */
+    border: 1px solid rgba(74, 85, 104, 0.5); /* Initial border */
+}
+
+/* Generic background texture for all states - more prominent */
+.background-texture {
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239C92AC' fill-opacity='0.08' fill-rule='evenodd'%3E%3Cpath d='M0 0h5v5H0V0zm5 0h5v5H5V0zm0 5h5v5H5V5zm0 0h5v5H5V5z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 10px 10px;
+    opacity: 0.15; /* More visible texture */
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+#resultsContainer > *:not(.background-texture) {
+    position: relative;
+    z-index: 2;
+}
+
+/* Initial/Loading state */
+#resultsContainer.bg-initial {
+    background: linear-gradient(145deg, #2d3748, #1a202c); /* Darker initial gradient */
+    border-color: rgba(74, 85, 104, 0.6);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4),
+                0 0 15px rgba(66, 153, 225, 0.15); /* Subtle blue glow */
+}
+
+/* Optimal Fulfillment (Green Gradient) */
+#resultsContainer.bg-optimal {
+    background: linear-gradient(145deg, #2f855a, #38a169); /* Deep green to bright green */
+    border-color: #48bb78;
+    box-shadow: 0 10px 50px rgba(56, 161, 105, 0.5), /* Stronger green glow */
+                0 0 25px rgba(56, 161, 105, 0.3);
+}
+
+/* Nearby Fulfillment (Orange Gradient) */
+#resultsContainer.bg-nearby {
+    background: linear-gradient(145deg, #dd6b20, #ed8936); /* Deep orange to bright orange */
+    border-color: #f6ad55;
+    box-shadow: 0 10px 50px rgba(237, 137, 54, 0.5),
+                0 0 25px rgba(237, 137, 54, 0.3);
+}
+
+/* No Local Fulfillment (Red Gradient) */
+#resultsContainer.bg-none {
+    background: linear-gradient(145deg, #c53030, #e53e3e); /* Deep red to bright red */
+    border-color: #fc8181;
+    box-shadow: 0 10px 50px rgba(229, 62, 62, 0.5),
+                0 0 25px rgba(229, 62, 62, 0.3);
+}
+
+/* Error state (for input validation) */
+#resultsContainer.bg-error {
+    background: linear-gradient(145deg, #9b2c2c, #e53e3e); /* Darker red for error */
+    border-color: #e53e3e;
+    box-shadow: 0 10px 40px rgba(239, 68, 68, 0.45),
+                0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+/* Hover effect for results container - more pronounced */
+#resultsContainer:hover {
+    transform: translateY(-8px) scale(1.02) translateZ(15px); /* Lift, enlarge, and pop out more */
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), /* Deeper shadow on hover */
+                0 0 30px rgba(255, 255, 255, 0.1); /* Subtle white glow */
+}
+
+/* Text hover effects within results container - more pop and subtle glow */
+#resultsContainer p, #resultsContainer .animate-pop-in, #resultsContainer .fade-in-up, #resultsContainer .animate-pulse-custom {
+    transition: transform 0.25s ease-out, filter 0.25s ease-out, text-shadow 0.25s ease-out;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+}
+#resultsContainer p:hover, #resultsContainer .animate-pop-in:hover, #resultsContainer .fade-in-up:hover, #resultsContainer .animate-pulse-custom:hover {
+     transform: translateY(-3px) translateZ(12px) scale(1.03); /* More lift and pop out */
+     filter: brightness(1.2); /* Brighter */
+     text-shadow: 0 3px 10px rgba(0, 0, 0, 0.3), 0 0 10px rgba(255, 255, 255, 0.2); /* Stronger text shadow with subtle glow */
+}

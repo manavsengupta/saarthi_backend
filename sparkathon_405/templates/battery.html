@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Battery Management System for Drones</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom CSS for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0c16 0%, #1a1e2f 100%); /* Even deeper dark gradient background */
+            color: #e2e8f0; /* Light text */
+            margin: 0;
+            padding: 0;
+            overflow-y: auto; /* Allow vertical scrolling */
+            position: relative; /* For absolute positioning of background canvas */
+        }
+
+        #backgroundCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place behind other content */
+        }
+
+        .container-wrapper {
+            position: relative;
+            z-index: 1; /* Ensure content is above background */
+            max-width: 7xl;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 1.5rem;
+            width: 100%; /* Ensure it takes full width within max-width */
+        }
+
+        .card {
+            background-color: rgba(2, 6, 23, 0.9); /* Almost black, slightly transparent */
+            backdrop-filter: blur(8px); /* More pronounced blur effect */
+            border-radius: 1rem; /* Even more rounded corners */
+            padding: 1.5rem;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.2); /* Stronger, deeper shadow */
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(74, 85, 104, 0.3); /* Softer, subtle border */
+        }
+        .battery-bar-container {
+            width: 100%;
+            height: 12px;
+            background-color: #4a5568;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .battery-bar {
+            height: 100%;
+            background-color: #84cc16; /* Lime green for healthy battery */
+            transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        }
+        .battery-bar.low {
+            background-color: #fbbf24; /* Amber for low battery */
+        }
+        .battery-bar.critical {
+            background-color: #e11d48; /* Rose red for critical battery */
+        }
+        /* Canvas styles remain for the map, new styles for the charging display */
+        canvas {
+            background-color: rgba(15, 23, 42, 0.7); /* Darker, slightly transparent map background */
+            border-radius: 0.75rem;
+            display: block;
+            width: 100%;
+            height: 400px; /* Specific height for the map canvas */
+            border: 1px solid rgba(74, 85, 104, 0.3);
+        }
+        #droneMap {
+            height: 400px; /* Specific height for the map canvas */
+        }
+        button {
+            transition: all 0.2s ease-in-out;
+            border-radius: 0.5rem; /* Rounded buttons */
+            font-weight: 600; /* Semi-bold text */
+            background-color: #14b8a6; /* Teal 600 */
+        }
+        button:hover {
+            transform: translateY(-3px); /* More pronounced lift */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); /* Stronger hover shadow */
+            background-color: #0d9488; /* Darker teal */
+        }
+
+        /* Animations for charging/swapping */
+        .charging-pulse {
+            animation: pulse-blue 1.5s ease-in-out infinite alternate; /* Smoother pulse */
+        }
+        .swapping-pulse {
+            animation: pulse-orange 1.5s ease-in-out infinite alternate; /* Smoother pulse */
+        }
+
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.7); }
+            100% { box-shadow: 0 0 0 15px rgba(66, 153, 225, 0); } /* Larger pulse */
+        }
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(237, 137, 54, 0.7); }
+            100% { box-shadow: 0 0 0 15px rgba(237, 137, 54, 0); } /* Larger pulse */
+        }
+
+        /* Map specific animations/styles */
+        @keyframes map-pulse-facility-blue {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes map-pulse-facility-orange {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .map-pulse-blue-static { /* For satellite base pulse */
+             animation: map-pulse-blue 2s ease-out infinite;
+        }
+
+        /* Counter animations */
+        .count-update-success {
+            animation: bounce-in-success 0.5s ease-out;
+        }
+        .count-update-danger {
+            animation: bounce-in-danger 0.5s ease-out;
+        }
+
+        @keyframes bounce-in-success {
+            0% { transform: scale(0.8); opacity: 0; color: #84cc16; }
+            50% { transform: scale(1.1); opacity: 1; color: #84cc16; }
+            100% { transform: scale(1); opacity: 1; color: #d1fae5; } /* Tailwind green-100 */
+        }
+        @keyframes bounce-in-danger {
+            0% { transform: scale(0.8); opacity: 0; color: #e11d48; }
+            50% { transform: scale(1.1); opacity: 1; color: #e11d48; }
+            100% { transform: scale(1); opacity: 1; color: #ffe4e6; /* Tailwind red-100 */ }
+        }
+
+        /* Satellite antenna drawing */
+        .satellite-antenna {
+            background-color: #a0aec0; /* Gray */
+            position: absolute;
+            width: 1px;
+            height: 8px;
+            left: 50%;
+            transform: translateX(-0.5px);
+            bottom: 100%; /* Relative to facility size */
+        }
+        .satellite-dish {
+            background-color: #a0aec0;
+            position: absolute;
+            width: 8px;
+            height: 4px;
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0; /* Half-ellipse for dish */
+            left: calc(50% - 4px);
+            bottom: calc(100% + 8px); /* Above mast */
+            transform-origin: bottom center;
+            transform: rotateZ(20deg); /* Slight tilt for visual interest */
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #1a202c; /* Dark gray */
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #4a5568;
+            border-radius: 0.75rem;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #e11d48;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* New styles for the animated charging station display */
+        .facility-card {
+            background-color: rgba(15, 23, 42, 0.7);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            border: 1px solid rgba(74, 85, 104, 0.3);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* For queue positioning */
+        }
+        .facility-name {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* semi-bold */
+            color: #14b8a6; /* teal-500 */
+            margin-bottom: 0.5rem;
+        }
+        .facility-status {
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* medium */
+            margin-bottom: 0.75rem;
+        }
+        .slot-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap; /* Allow slots to wrap */
+            gap: 0.5rem; /* Space between slots */
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.2); /* Slightly darker background for slots area */
+        }
+        .slot {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #4a5568; /* Default border */
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem; /* Icon size */
+            color: #cbd5e0;
+            background-color: #2d3748; /* Empty slot background */
+            transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.1s ease;
+        }
+        .slot.occupied-cs {
+            background-color: #4299e1; /* Blue for charging */
+            border-color: #2b6cb0;
+        }
+        .slot.occupied-sh {
+            background-color: #ed8936; /* Orange for swapping */
+            border-color: #c05621;
+        }
+        .slot.offline {
+            background-color: #2d3748; /* Darker background for offline */
+            border-color: #718096;
+            opacity: 0.6;
+        }
+        .slot.occupied-cs i, .slot.occupied-sh i {
+            color: #ffffff; /* White icon for occupied slots */
+        }
+        .slot.warning {
+            border-color: #fbbf24; /* Amber for approaching full */
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); /* Subtle glow */
+        }
+        .slot.critical {
+            border-color: #e11d48; /* Red for full */
+            box-shadow: 0 0 10px rgba(225, 29, 72, 0.7); /* Stronger glow */
+        }
+        .slot.charging-animation {
+            animation: charging-pulse-slot 1.5s infinite alternate;
+        }
+        .slot.swapping-animation {
+            animation: swapping-pulse-slot 1.5s infinite alternate;
+        }
+        @keyframes charging-pulse-slot {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+        @keyframes swapping-pulse-slot {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+
+        .queue-info {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            width: 100%;
+            margin-top: 0.75rem;
+        }
+        .queue-info p {
+            font-size: 0.875rem; /* text-sm */
+            line-height: 1.2;
+            color: #cbd5e0;
+        }
+        .queue-info .label {
+            font-weight: 500;
+            color: #a0aec0;
+        }
+        .queue-info .value {
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .queue-drone-icon {
+            font-size: 0.75rem; /* text-xs */
+            margin: 0 2px;
+            color: #84cc16; /* Default drone color */
+        }
+        .queue-drone-icon.low-batt {
+            color: #e11d48; /* Red for low battery */
+        }
+        .queue-drone-icon.maintenance {
+            color: #fbbf24; /* Yellow for maintenance */
+        }
+    </style>
+</head>
+<body class="p-6">
+    <canvas id="backgroundCanvas"></canvas>
+    <div class="container-wrapper">
+        <h1 class="text-4xl font-bold text-center mb-8 text-teal-300">Drone Battery Management System</h1>
+
+        <!-- Drone Controls -->
+        <div class="card mb-6">
+            <h2 class="text-2xl font-semibold mb-4 text-teal-300">Drone Operations</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="newDronePayload" class="block text-sm font-medium text-gray-300">Payload Weight (kg):</label>
+                    <input type="number" id="newDronePayload" value="5" min="0" class="mt-1 block w-full rounded-md shadow-sm p-2 bg-gray-800 text-white border border-gray-700 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+                <div>
+                    <label for="newDroneRoute" class="block text-sm font-medium text-gray-300">Route Distance (km):</label>
+                    <input type="number" id="newDroneRoute" value="20" min="1" class="mt-1 block w-full rounded-md shadow-sm p-2 bg-gray-800 text-white border border-gray-700 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+                <div>
+                    <label for="newDroneWeather" class="block text-sm font-medium text-gray-300">Initial Weather Impact (1-5):</label>
+                    <input type="number" id="newDroneWeather" value="1" min="1" max="5" class="mt-1 block w-full rounded-md shadow-sm p-2 bg-gray-800 text-white border border-gray-700 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+            </div>
+            <button id="addDroneBtn" class="bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-lg shadow-lg">
+                Add New Drone & Start Mission
+            </button>
+            <div class="mt-4 flex items-center justify-between">
+                <p class="text-gray-300 text-sm">Current Global Weather Impact: <span id="currentWeatherDisplay" class="font-bold text-white">1</span></p>
+                <div class="flex items-center">
+                    <label for="simulationSpeed" class="block text-sm font-medium text-gray-300 mr-2">Simulation Speed:</label>
+                    <input type="range" id="simulationSpeed" min="1" max="5" value="1" class="w-24">
+                    <span id="simulationSpeedDisplay" class="ml-2 text-white">1x</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Drone Status -->
+            <div class="lg:col-span-2">
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 text-teal-300">Drone Fleet Status</h2>
+                    <div id="droneList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Drone cards will be rendered here by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Visualizations -->
+            <div>
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 text-teal-300">Operational Map</h2>
+                    <canvas id="droneMap"></canvas>
+                    <div id="mapWeatherDisplay" class="absolute top-4 left-4 bg-gray-900 bg-opacity-70 text-white text-sm p-2 rounded-md opacity-90">Weather: Stable</div>
+                </div>
+
+                <div class="card mt-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-teal-300">Charging Station Availability</h2>
+                    <!-- Replaced canvas with div for animated display -->
+                    <div id="chargingStationsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <!-- Charging station cards will be rendered here by JS -->
+                    </div>
+                </div>
+
+                <!-- Drone Queue Analytics -->
+                <div class="card mt-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-teal-300">Queue & Mission Analytics</h2>
+                    <p class="text-gray-300 mb-2">Charging Queue: <span id="chargingQueueCount" class="font-bold">0</span> drones</p>
+                    <p class="text-gray-300 mb-2">Swapping Queue: <span id="swappingQueueCount" class="font-bold">0</span> drones</p>
+                    <p class="text-gray-300 mb-2">Missions Completed: <span id="missionsCompletedCount" class="font-bold text-lime-400">0</span></p>
+                    <p class="text-gray-300">Emergency Landings: <span id="emergencyLandingsCount" class="font-bold text-rose-400">0</span></p>
+                    <p class="text-gray-300">Drones Under Maintenance: <span id="maintenanceCount" class="font-bold text-yellow-400">0</span></p>
+                    <div id="capacityAlerts" class="mt-3 text-sm text-yellow-300">
+                        <!-- Capacity alerts will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for detailed info -->
+    <div id="infoModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle" class="text-xl font-bold mb-4 text-teal-300"></h3>
+            <div id="modalContent" class="text-gray-200"></div>
+        </div>
+    </div>
+{% verbatim %}
+    <script>
+        // Use __app_id, __firebase_config, __initial_auth_token
+        // These variables are provided by the Canvas environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Configuration Constants ---
+        const DRONE_BATTERY_DRAIN_PER_KM = 0.5; // % per km
+        const DRONE_BATTERY_DRAIN_PER_KG_PER_KM = 0.05; // % per kg per km
+        const WEATHER_IMPACT_MULTIPLIER = 0.02; // Reduced: Additional % drain per unit of weather impact (per km)
+        const LOW_BATTERY_THRESHOLD = 25; // Increased: % to trigger rerouting
+        const MAINTENANCE_THRESHOLD = 80; // % wear and tear to trigger maintenance
+        const MAINTENANCE_TIME_TICKS = 15; // Ticks required for maintenance
+        const WEAR_TEAR_PER_KM_BASE = 0.1; // Base wear per km
+        const WEAR_TEAR_PER_KG_PER_KM = 0.005; // Additional wear per kg per km
+        const BASE_CHARGING_RATE = 5; // % per simulation tick (was CHARGING_RATE)
+        const WEATHER_CHARGING_PENALTY_PER_UNIT = 0.05; // New: % reduction in charging rate per unit of weather impact (max 20% for impact 5)
+        const SWAPPING_TIME_TICKS = 3; // Ticks required for battery swap
+        const MIN_DRONE_BATTERY_START = 80; // Minimum starting battery for a new drone
+        const DRONE_BASE_SPEED = 2; // km per simulation tick (base speed)
+        const FACILITY_STATUS_CHANGE_CHANCE = 0.01; // 1% chance per tick for a facility to change online status
+        const APPROACHING_CAPACITY_THRESHOLD = 0.7; // 70% capacity for warning
+
+
+        // --- Global Data Stores ---
+        let drones = [];
+        let chargingStations = [];
+        let swapHubs = [];
+        let nextDroneId = 1; // To give unique IDs to drones
+        let currentWeatherImpact = 1; // Initial global weather impact (1-5)
+        let missionsCompleted = 0;
+        let emergencyLandings = 0;
+        let dronesUnderMaintenance = 0; // New counter for maintenance
+        let simulationIntervalId; // To control simulation speed
+        let currentSimulationSpeed = 1; // Default speed
+        let animatedLineDashOffset = 0; // For marching ants animation
+
+        // --- UI Elements ---
+        const backgroundCanvas = document.getElementById('backgroundCanvas');
+        const backgroundCtx = backgroundCanvas.getContext('2d');
+        const droneListEl = document.getElementById('droneList');
+        const chargingStationsContainer = document.getElementById('chargingStationsContainer'); // Changed from chargingGraphCanvas
+        const droneMapCanvas = document.getElementById('droneMap');
+        const droneMapCtx = droneMapCanvas.getContext('2d');
+        const chargingQueueCountEl = document.getElementById('chargingQueueCount');
+        const swappingQueueCountEl = document.getElementById('swappingQueueCount');
+        const missionsCompletedCountEl = document.getElementById('missionsCompletedCount');
+        const emergencyLandingsCountEl = document.getElementById('emergencyLandingsCount');
+        const maintenanceCountEl = document.getElementById('maintenanceCount'); // New UI element
+        const addDroneBtn = document.getElementById('addDroneBtn');
+        const newDronePayloadEl = document.getElementById('newDronePayload');
+        const newDroneRouteEl = document.getElementById('newDroneRoute');
+        const newDroneWeatherEl = document.getElementById('newDroneWeather');
+        const currentWeatherDisplayEl = document.getElementById('currentWeatherDisplay');
+        const simulationSpeedSlider = document.getElementById('simulationSpeed');
+        const simulationSpeedDisplayEl = document.getElementById('simulationSpeedDisplay');
+        const capacityAlertsEl = document.getElementById('capacityAlerts');
+        const mapWeatherDisplayEl = document.getElementById('mapWeatherDisplay');
+
+        // Modal Elements
+        const infoModal = document.getElementById('infoModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+
+        // --- Constants for Map Drawing ---
+        const MAP_COORD_RANGE = 100; // The abstract coordinate system (0-100)
+        const DRONE_RADIUS = 5;
+        const FACILITY_SIZE = 8;
+        const MAP_PADDING = 10; // Padding for map rendering so objects aren't on the edge
+
+        // --- Background Animation (Stars) ---
+        let stars = [];
+        const NUM_STARS = 200; // More stars
+
+        function createStar() {
+            return {
+                x: Math.random() * backgroundCanvas.width,
+                y: Math.random() * backgroundCanvas.height,
+                radius: Math.random() * 1.2 + 0.3, // Smaller stars, wider range
+                alpha: Math.random(), // Initial random alpha
+                speedX: (Math.random() - 0.5) * 0.1, // Slower movement
+                speedY: (Math.random() - 0.5) * 0.1,
+                fadeSpeed: Math.random() * 0.003 + 0.0005, // Slower fade for twinkling
+                twinkleOffset: Math.random() * Math.PI * 2 // For periodic twinkling
+            };
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < NUM_STARS; i++) {
+                stars.push(createStar());
+            }
+        }
+
+        function animateStars() {
+            backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+            for (let i = 0; i < NUM_STARS; i++) {
+                let star = stars[i];
+
+                star.x += star.speedX;
+                star.y += star.speedY;
+
+                // Twinkling effect: oscillate alpha
+                star.alpha = 0.5 + 0.5 * Math.sin(Date.now() * star.fadeSpeed + star.twinkleOffset);
+
+
+                // Wrap around if off screen
+                if (star.x < 0) star.x = backgroundCanvas.width;
+                if (star.x > backgroundCanvas.width) star.x = 0;
+                if (star.y < 0) star.y = backgroundCanvas.height;
+                if (star.y > backgroundCanvas.height) star.y = 0;
+
+                backgroundCtx.beginPath();
+                backgroundCtx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                backgroundCtx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                backgroundCtx.fill();
+            }
+            requestAnimationFrame(animateStars);
+        }
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Generates a random integer between min (inclusive) and max (inclusive).
+         * @param {number} min
+         * @param {number} max
+         * @returns {number}
+         */
+        function getRandomInt(min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        /**
+         * Calculates the Euclidean distance between two points.
+         * @param {{x: number, y: number}} loc1
+         * @param {{x: number, y: number}} loc2
+         * @returns {number}
+         */
+        function calculateDistance(loc1, loc2) {
+            return Math.sqrt(Math.pow(loc1.x - loc2.x, 2) + Math.pow(loc1.y - loc2.y, 2));
+        }
+
+        /**
+         * Finds the nearest available station/hub of a given type.
+         * @param {object} drone - The drone object.
+         * @param {Array<object>} facilities - Array of charging stations or swap hubs.
+         * @returns {object|null} - The nearest available facility or null if none.
+         */
+        function findNearestAvailable(drone, facilities) {
+            let nearestFacility = null;
+            let minDistance = Infinity;
+
+            for (const facility of facilities) {
+                // Only consider facilities that are online and have capacity
+                if (facility.isOnline && facility.currentLoad < facility.capacity) {
+                    const dist = calculateDistance(drone.currentLocation, facility.location);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        nearestFacility = facility;
+                    }
+                }
+            }
+            return nearestFacility;
+        }
+
+        /**
+         * Displays a custom message box instead of native alert().
+         * @param {string} message - The message to display.
+         */
+        function createMessageBox(message) {
+            const existingMessageBox = document.getElementById('custom-message-box');
+            if (existingMessageBox) {
+                existingMessageBox.remove();
+            }
+
+            const messageBox = document.createElement('div');
+            messageBox.id = 'custom-message-box';
+            messageBox.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50';
+            messageBox.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
+                    <p class="text-lg text-white mb-4">${message}</p>
+                    <button id="messageBoxCloseBtn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg">
+                        OK
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(messageBox);
+
+            document.getElementById('messageBoxCloseBtn').addEventListener('click', () => {
+                messageBox.remove();
+            });
+        }
+
+        /**
+         * Shows the modal with drone/facility details.
+         * @param {string} title
+         * @param {string} contentHtml
+         */
+        function showModal(title, contentHtml) {
+            modalTitle.textContent = title;
+            modalContent.innerHTML = contentHtml;
+            infoModal.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the modal.
+         */
+        function closeModal() {
+            infoModal.classList.add('hidden');
+        }
+
+
+        // --- Data Models and Initialization ---
+
+        /**
+         * Drone Class
+         */
+        class Drone {
+            constructor(id, initialBattery, payloadWeight, routeDistance, weatherImpact, origin, destination) {
+                this.id = id;
+                this.batteryLevel = initialBattery; // Percentage
+                this.status = 'idle'; // idle, en_route, charging, swapping, low_battery, returning_to_base, emergency_landing, maintenance_needed, under_maintenance
+                this.payloadWeight = payloadWeight; // kg
+                this.routeDistance = routeDistance; // km (total planned for current mission)
+                this.distanceCovered = 0; // km (actual mission distance covered)
+                this.initialWeatherImpact = weatherImpact; // 1-5 scale (initial for drone, global affects later)
+                this.currentLocation = {...origin}; // {x, y}
+                this.destination = {...destination}; // {x, y} (current target: mission destination, facility, or origin)
+                this.origin = {...origin}; // {x,y} (starting base for the drone)
+                this.missionFinalDestination = {...destination}; // The ultimate goal for the current mission
+                this.targetFacility = null; // The charging station or swap hub it's heading to (object reference)
+                this.swappingCountdown = 0; // For swap hub simulation
+                this.chargingQueue = false; // Is in a charging queue
+                this.swappingQueue = false; // Is in a swapping queue
+                this.reroutingToBase = false; // Flag for returning to base after mission/swap
+                this.pathHistory = [{...this.currentLocation}]; // Stores past locations for path drawing
+                this.speed = DRONE_BASE_SPEED; // km per tick, can be adjusted by simulation speed
+                this.missionCompleted = false; // Flag to track if the current mission was completed
+                this.wearAndTear = 0; // New: 0-100%
+                this.maintenanceTime = 0; // New: Ticks remaining for maintenance
+            }
+
+            /**
+             * Predicts the battery drain for a given distance, considering global weather.
+             * @param {number} distance - Distance to cover.
+             * @returns {number} - Predicted battery percentage drain.
+             */
+            predictDrain(distance) {
+                let drain = distance * DRONE_BATTERY_DRAIN_PER_KM;
+                drain += this.payloadWeight * distance * DRONE_BATTERY_DRAIN_PER_KG_PER_KM;
+                // Use the current global weather impact for drain calculation
+                drain += currentWeatherImpact * WEATHER_IMPACT_MULTIPLIER * distance; // Weather impact scales with distance
+                return drain;
+            }
+
+            /**
+             * Predicts the remaining safe flight range (distance in km) for the drone.
+             * Accounts for current battery, payload, and global weather impact, aiming to reach LOW_BATTERY_THRESHOLD.
+             * Returns 0 if already below threshold or cannot reach any distance.
+             * @returns {number} - Predicted safe flight range in km.
+             */
+            predictRemainingSafeRange() {
+                const currentPredictedDrainPerKm = DRONE_BATTERY_DRAIN_PER_KM +
+                                                   (this.payloadWeight * DRONE_BATTERY_DRAIN_PER_KG_PER_KM) +
+                                                   (currentWeatherImpact * WEATHER_IMPACT_MULTIPLIER);
+
+                // Calculate how much battery is available before hitting LOW_BATTERY_THRESHOLD
+                const usableBattery = this.batteryLevel - LOW_BATTERY_THRESHOLD;
+
+                if (currentPredictedDrainPerKm <= 0 || usableBattery <= 0) {
+                    return 0; // No range if no drain or already critical
+                }
+
+                const predictedRange = usableBattery / currentPredictedDrainPerKm;
+                return Math.max(0, predictedRange); // Ensure it's not negative
+            }
+
+            /**
+             * Predicts the remaining flight time (in simulation ticks) for the drone.
+             * Accounts for current battery, payload, global weather impact, and drone's current speed.
+             * @returns {number} - Predicted flight time in ticks.
+             */
+            predictRemainingFlightTime() {
+                const predictedRange = this.predictRemainingSafeRange();
+                if (predictedRange <= 0 || this.speed <= 0) {
+                    return 0;
+                }
+                return predictedRange / this.speed;
+            }
+
+
+            /**
+             * Assigns a new random mission to the drone.
+             */
+            assignNewMission() {
+                this.origin = {...this.currentLocation}; // New origin is current location
+                this.destination = {x: getRandomInt(10, 90), y: getRandomInt(10, 90)};
+                this.missionFinalDestination = {...this.destination}; // Set the ultimate destination
+                this.routeDistance = calculateDistance(this.origin, this.destination); // Calculate new route distance
+                this.distanceCovered = 0;
+                this.status = 'en_route';
+                this.missionCompleted = false;
+                this.reroutingToBase = false; // Ensure this is false for a new mission
+                this.pathHistory = [{...this.currentLocation}]; // Reset path history for new mission
+                console.log(`Drone ${this.id} assigned new mission from (${this.origin.x.toFixed(1)},${this.origin.y.toFixed(1)}) to (${this.destination.x.toFixed(1)},${this.destination.y.toFixed(1)}) over ${this.routeDistance.toFixed(1)} km.`);
+            }
+
+            /**
+             * Simulates a single tick of battery drain, movement, charging, or swapping.
+             */
+            update() {
+                if (this.status === 'emergency_landing') {
+                    return; // Crashed drones do nothing
+                }
+
+                // Determine effective target for current movement
+                let currentTarget = null;
+                if (this.status === 'en_route') {
+                    currentTarget = this.missionFinalDestination; // Original mission destination
+                } else if (this.reroutingToBase || this.status === 'maintenance_needed') { // Drone reroutes to base for maintenance
+                    currentTarget = this.origin; // Original home base
+                } else if (this.targetFacility) {
+                    currentTarget = this.targetFacility.location; // Assigned facility
+                } else {
+                    // If idle, charging, swapping, or low_battery waiting for assignment, stay put visually
+                    currentTarget = this.currentLocation;
+                }
+
+                const distToTarget = calculateDistance(this.currentLocation, currentTarget);
+                let actualMoveStep = 0;
+                let shouldDrainBattery = false; // Flag to control battery drain
+
+                // Condition to determine if the drone *should* be moving and draining battery
+                // Drones should not drain battery if they are explicitly waiting for a facility or under maintenance
+                const isActivelyMovingAndDraining =
+                    (this.status === 'en_route') ||
+                    (this.reroutingToBase && this.status !== 'under_maintenance') || // Drain when rerouting, unless under maintenance
+                    (this.status === 'low_battery' && this.targetFacility && this.targetFacility.isOnline && this.targetFacility.currentLoad < this.targetFacility.capacity) ||
+                    (this.status === 'maintenance_needed'); // Drain when moving for maintenance
+
+                if (distToTarget > 0.1 && isActivelyMovingAndDraining) {
+                    actualMoveStep = Math.min(this.speed, distToTarget);
+                    const dx = currentTarget.x - this.currentLocation.x;
+                    const dy = currentTarget.y - this.currentLocation.y;
+                    const angle = Math.atan2(dy, dx);
+
+                    this.currentLocation.x += Math.cos(angle) * actualMoveStep;
+                    this.currentLocation.y += Math.sin(angle) * actualMoveStep;
+                    shouldDrainBattery = true; // Battery should drain because it moved and is supposed to
+                    
+                    // Update wear and tear if moving
+                    const wearIncrease = (actualMoveStep * WEAR_TEAR_PER_KM_BASE) + (this.payloadWeight * WEAR_TEAR_PER_KG_PER_KM * actualMoveStep);
+                    this.wearAndTear = Math.min(100, this.wearAndTear + wearIncrease);
+
+                    // Add to path history
+                    if (this.pathHistory.length === 0 || calculateDistance(this.currentLocation, this.pathHistory[this.pathHistory.length - 1]) > 0.5) {
+                        this.pathHistory.push({...this.currentLocation});
+                        if (this.pathHistory.length > 50) { // Keep path history limited for performance
+                            this.pathHistory.shift();
+                        }
+                    }
+                } else if (distToTarget <= 0.1 && currentTarget !== this.currentLocation) { // Arrived at target (not self-loop)
+                    this.currentLocation = {...currentTarget}; // Snap to target
+                    // No drain from movement this tick, as it just arrived or is waiting.
+                }
+
+                // Apply battery drain if conditions met
+                if (shouldDrainBattery && this.status !== 'charging' && this.status !== 'swapping' && this.status !== 'under_maintenance') {
+                    const drainThisTick = this.predictDrain(actualMoveStep); // Drain based on actual distance moved
+                    this.batteryLevel = Math.max(0, this.batteryLevel - drainThisTick);
+                }
+
+
+                // Handle battery emergency (after drain)
+                if (this.batteryLevel <= 0 && this.status !== 'emergency_landing') {
+                    this.status = 'emergency_landing';
+                    emergencyLandings++;
+                    console.error(`Drone ${this.id} ran out of battery! Emergency landing.`);
+                    return; // Stop further updates for this drone
+                }
+
+                // Update mission distance if truly on mission and moved
+                if (this.status === 'en_route' && actualMoveStep > 0) { // Only increment if actually moved
+                    this.distanceCovered += actualMoveStep;
+                    if (this.distanceCovered >= this.routeDistance) {
+                        this.distanceCovered = this.routeDistance; // Cap distance covered
+                        this.status = 'returning_to_base'; // Mission complete, set to return
+                        this.reroutingToBase = true;
+                        this.destination = this.origin; // Set drone's immediate destination to its origin for return journey
+                        this.missionFinalDestination = this.origin; // Ultimate goal for return trip
+                        this.missionCompleted = true; // Mark mission as completed for analytics
+                        console.log(`Drone ${this.id} reached mission destination, returning to base.`);
+                    }
+                }
+
+                // Low battery detection and status change
+                // This logic is crucial: it sets status to low_battery, which then triggers the search for facility in simulationTick
+                if (this.batteryLevel <= LOW_BATTERY_THRESHOLD && this.status !== 'low_battery' && this.status !== 'charging' && this.status !== 'swapping' && this.status !== 'idle' && this.status !== 'emergency_landing' && this.status !== 'maintenance_needed' && this.status !== 'under_maintenance') {
+                    this.status = 'low_battery';
+                    console.log(`Drone ${this.id} is low on battery (${this.batteryLevel.toFixed(1)}%). Seeking facility.`);
+                }
+
+                // Maintenance needed detection and status change
+                if (this.wearAndTear >= MAINTENANCE_THRESHOLD && this.status !== 'maintenance_needed' && this.status !== 'under_maintenance' && this.status !== 'emergency_landing') {
+                    this.status = 'maintenance_needed';
+                    this.reroutingToBase = true; // Set to return to base
+                    this.destination = this.origin;
+                    console.log(`Drone ${this.id} requires maintenance (${this.wearAndTear.toFixed(1)}% wear). Rerouting to base.`);
+                }
+
+
+                // State transitions after reaching targets (base/facilities)
+                // If the drone arrived at base and it was returning or for maintenance, set to idle or under_maintenance.
+                if (this.reroutingToBase && calculateDistance(this.currentLocation, this.origin) < DRONE_BASE_SPEED * 0.5) {
+                    this.currentLocation = {...this.origin}; // Snap to origin for precision
+                    this.reroutingToBase = false; // Clear rerouting flag
+
+                    if (this.status === 'maintenance_needed') {
+                        this.status = 'under_maintenance';
+                        this.maintenanceTime = MAINTENANCE_TIME_TICKS;
+                        console.log(`Drone ${this.id} arrived at base for maintenance.`);
+                    } else { // Was returning after mission
+                        this.status = 'idle';
+                        if (this.missionCompleted) {
+                            missionsCompleted++;
+                            this.missionCompleted = false; // Reset flag after counting
+                        }
+                        if (this.batteryLevel < 100) {
+                            // The simulationTick will pick it up for charging
+                        } else {
+                            this.assignNewMission(); // If full battery upon arrival, assign new mission
+                        }
+                    }
+                    this.targetFacility = null; // Clear target once arrived
+                    this.pathHistory = [this.currentLocation]; // Clear path history
+                }
+                // If the drone arrived at a facility it was targeting and it's available, enter service
+                else if (this.targetFacility && calculateDistance(this.currentLocation, this.targetFacility.location) < DRONE_BASE_SPEED * 0.5) {
+                    // Check if facility is still online and has capacity just before entering
+                    if (this.targetFacility.isOnline && this.targetFacility.currentLoad < this.targetFacility.capacity) {
+                        // Drone successfully enters the facility
+                        this.currentLocation = {...this.targetFacility.location}; // Snap
+                        if (this.targetFacility.id.startsWith('CS')) {
+                            this.status = 'charging';
+                        } else if (this.targetFacility.id.startsWith('SH')) {
+                            this.status = 'swapping';
+                            this.swappingCountdown = SWAPPING_TIME_TICKS;
+                        }
+                        this.targetFacility.currentLoad++;
+                        this.chargingQueue = false;
+                        this.swappingQueue = false;
+                        this.targetFacility.dronesServiced++; // Increment service count
+                        console.log(`Drone ${this.id} arrived at ${this.targetFacility.id} and started ${this.status}.`);
+                    } else {
+                        // Drone arrived but facility is full or offline. It will wait at this location.
+                        console.log(`Drone ${this.id} arrived at ${this.targetFacility.id} but it's full/offline. Waiting.`);
+                        // Clear targetFacility so simulationTick can re-evaluate and find a new one
+                        this.targetFacility = null;
+                        // Status might remain low_battery or previous, so simulationTick can re-queue or reroute
+                    }
+                }
+
+                // Handle charging/swapping progress
+                if (this.status === 'charging') {
+                    // Calculate effective charging rate based on weather
+                    const weatherPenalty = (currentWeatherImpact - 1) * WEATHER_CHARGING_PENALTY_PER_UNIT; // E.g., for impact 5, penalty is 4 * 0.05 = 0.20 (20%)
+                    const effectiveChargingRate = BASE_CHARGING_RATE * (1 - weatherPenalty);
+                    this.batteryLevel = Math.min(100, this.batteryLevel + effectiveChargingRate);
+                    if (this.batteryLevel >= 95) { // Consider 95% fully charged to allow small fluctuations
+                        this.batteryLevel = 100; // Snap to 100%
+                        this.status = 'idle';
+                        if (this.targetFacility) {
+                            this.targetFacility.currentLoad--; // Release the station
+                        }
+                        this.targetFacility = null;
+                        this.chargingQueue = false;
+                        this.reroutingToBase = false; // Reset if it was set for returning
+                        this.pathHistory = [this.currentLocation]; // Clear path history for idle
+                        console.log(`Drone ${this.id} fully charged.`);
+                        this.assignNewMission(); // Assign new mission after charging
+                    }
+                } else if (this.status === 'swapping') {
+                    this.swappingCountdown--;
+                    if (this.swappingCountdown <= 0) {
+                        this.batteryLevel = 100; // Battery instantly swapped to full
+                        this.status = 'idle';
+                        if (this.targetFacility) {
+                            this.targetFacility.currentLoad--; // Release the hub
+                        }
+                        this.targetFacility = null;
+                        this.swappingQueue = false;
+                        this.reroutingToBase = false; // Reset if it was set for returning
+                        this.pathHistory = [this.currentLocation]; // Clear path history for idle
+                        console.log(`Drone ${this.id} battery swapped to 100%.`);
+                        this.assignNewMission(); // Assign new mission after swapping
+                    }
+                }
+                // Handle under_maintenance progress
+                else if (this.status === 'under_maintenance') {
+                    this.maintenanceTime--;
+                    if (this.maintenanceTime <= 0) {
+                        this.wearAndTear = 0; // Reset wear and tear
+                        this.batteryLevel = 100; // Fully charged after maintenance
+                        this.status = 'idle';
+                        this.pathHistory = [this.currentLocation];
+                        console.log(`Drone ${this.id} maintenance complete. Ready for new mission.`);
+                        this.assignNewMission(); // Assign new mission after maintenance
+                    }
+                }
+            }
+        }
+
+        /**
+         * Facility Class (Base for ChargingStation and SwapHub)
+         */
+        class Facility {
+            constructor(id, name, location, capacity, isSatellite = false) {
+                this.id = id;
+                this.name = name; // New property for descriptive name
+                this.location = location; // {x, y}
+                this.capacity = capacity; // Max drones it can handle simultaneously
+                this.currentLoad = 0; // Current drones being handled
+                this.isSatellite = isSatellite; // New property for satellite connectivity
+                this.isOnline = true; // New: Facility online status
+                this.dronesServiced = 0; // New: Counter for drones serviced
+            }
+
+            /**
+             * Calculates the predicted wait time for this facility.
+             * @param {Array<Drone>} queuedDrones - Drones currently in queue for this facility type.
+             * @param {string} type - 'charging' or 'swapping'
+             * @returns {number} - Estimated wait time in ticks.
+             */
+            predictWaitTime(queuedDrones, type) {
+                if (!this.isOnline) return Infinity; // Cannot service if offline
+
+                // Drones currently in service at this facility
+                let servicingDronesAtThisFacility = 0;
+                if (type === 'charging') {
+                    servicingDronesAtThisFacility = drones.filter(d => d.status === 'charging' && d.targetFacility === this).length;
+                } else if (type === 'swapping') {
+                    servicingDronesAtThisFacility = drones.filter(d => d.status === 'swapping' && d.targetFacility === this).length;
+                }
+
+                // Combine drones explicitly queued for this facility AND those that just arrived and are now in service
+                const totalQueuedForThisFacility = queuedDrones.filter(d => d.targetFacility === this).length; // These are still *in queue* for this facility
+
+                const effectiveQueueSize = Math.max(0, totalQueuedForThisFacility + this.currentLoad - this.capacity); // Number of drones truly waiting for a slot to open
+
+
+                let timeUntilNextSlotFree = 0;
+                if (this.currentLoad > 0) { // If there's at least one drone being serviced
+                    if (type === 'charging') {
+                        // Estimate time for the current drone that needs the longest charge to finish (simplification)
+                        // A more accurate model would track individual drone charge levels within the facility.
+                        const effectiveRate = BASE_CHARGING_RATE * (1 - (currentWeatherImpact - 1) * WEATHER_CHARGING_PENALTY_PER_UNIT);
+                        if (effectiveRate <= 0) return Infinity;
+                        timeUntilNextSlotFree = (100 / effectiveRate); // Time for a full charge
+                    } else if (type === 'swapping') {
+                        timeUntilNextSlotFree = SWAPPING_TIME_TICKS;
+                    }
+                }
+
+                if (effectiveQueueSize <= 0) {
+                    return timeUntilNextSlotFree > 0 ? Math.ceil(timeUntilNextSlotFree) : 0;
+                }
+
+                let timeForQueuedDrones = 0;
+                if (type === 'charging') {
+                    const effectiveRate = BASE_CHARGING_RATE * (1 - (currentWeatherImpact - 1) * WEATHER_CHARGING_PENALTY_PER_UNIT);
+                    if (effectiveRate <= 0) return Infinity; // Prevent division by zero
+                    // Time for the effective queue to be processed, assuming parallel processing up to capacity
+                    timeForQueuedDrones = (100 / effectiveRate) * (effectiveQueueSize / this.capacity);
+                } else if (type === 'swapping') {
+                    timeForQueuedDrones = SWAPPING_TIME_TICKS * (effectiveQueueSize / this.capacity);
+                }
+
+                return Math.ceil(timeUntilNextSlotFree + timeForQueuedDrones);
+            }
+        }
+
+        /**
+         * Initializes charging stations and swap hubs.
+         */
+        function initializeFacilities() {
+            // Place facilities within the typical drone flight range (10-90 on map)
+            chargingStations = [
+                new Facility('CS-1', 'Downtown Charging Hub', {x: 15, y: 15}, 3),
+                new Facility('CS-2', 'Northern Energy Post', {x: 85, y: 50}, 2),
+                new Facility('CS-3', 'Eastern Charge Point', {x: 40, y: 85}, 4)
+            ];
+
+            swapHubs = [
+                new Facility('SH-1', 'Central Battery Swap', {x: 50, y: 25}, 2, false), // Regular swap hub
+                new Facility('SH-2', 'Skyline Satellite Hub', {x: 25, y: 75}, 1, true),  // Satellite swap hub
+                new Facility('SH-3', 'Western Quick Swap', {x: 75, y: 70}, 2, false)
+            ];
+            console.log('Facilities initialized:', chargingStations, swapHubs);
+        }
+
+        /**
+         * Adds a new drone to the simulation.
+         * @param {number} payloadWeight
+         * @param {number} routeDistance
+         * @param {number} initialWeatherImpact (for drone's internal record, global weather affects drain)
+         */
+        function addNewDrone(payloadWeight, routeDistance, initialWeatherImpact) {
+            const initialBattery = getRandomInt(MIN_DRONE_BATTERY_START, 100);
+            const origin = {x: getRandomInt(10, 90), y: getRandomInt(10, 90)}; // Random origin within map bounds
+            const destination = {x: getRandomInt(10, 90), y: getRandomInt(10, 90)}; // Random destination
+            const newDrone = new Drone(
+                `DRONE-${nextDroneId++}`,
+                initialBattery,
+                payloadWeight,
+                routeDistance,
+                initialWeatherImpact,
+                origin,
+                destination
+            );
+            newDrone.status = 'en_route'; // Start mission immediately
+            drones.push(newDrone);
+            console.log(`New drone ${newDrone.id} added and started mission.`);
+            renderDrones();
+        }
+
+
+        // --- Simulation Logic ---
+
+        /**
+         * The main simulation tick function. This handles the "AI" decisions for drones.
+         */
+        function simulationTick() {
+            // Dynamic weather update: 10% chance to change global weather impact every tick
+            if (Math.random() < 0.1) {
+                currentWeatherImpact = getRandomInt(1, 5);
+                currentWeatherDisplayEl.textContent = `${currentWeatherImpact}`;
+                mapWeatherDisplayEl.textContent = `Weather: ${currentWeatherImpact === 1 ? 'Clear' : currentWeatherImpact === 5 ? 'Stormy' : 'Variable'}`;
+            }
+
+            // Facility online/offline toggle
+            [...chargingStations, ...swapHubs].forEach(facility => {
+                if (Math.random() < FACILITY_STATUS_CHANGE_CHANCE) {
+                    facility.isOnline = !facility.isOnline;
+                    console.log(`Facility ${facility.name} (${facility.id}) is now ${facility.isOnline ? 'ONLINE' : 'OFFLINE'}.`);
+                    // If a drone was targeting an offline facility, it needs to re-evaluate in the next tick
+                    drones.forEach(drone => {
+                        if (drone.targetFacility === facility && !facility.isOnline && drone.status !== 'charging' && drone.status !== 'swapping') {
+                             drone.targetFacility = null; // Clear target to force re-evaluation
+                             console.log(`Drone ${drone.id} target ${facility.id} went offline, re-evaluating route.`);
+                        }
+                    });
+                }
+            });
+
+
+            // Reset maintenance count for current tick
+            dronesUnderMaintenance = 0;
+
+            // Iterate over drones and apply decision logic
+            for (const drone of drones) {
+                if (drone.status === 'emergency_landing') {
+                    // Do nothing for emergency landed drones; they are out of service
+                    continue;
+                }
+
+                // If drone is currently under maintenance, increment count and continue
+                if (drone.status === 'under_maintenance') {
+                    dronesUnderMaintenance++;
+                    drone.update(); // Still update to decrement maintenanceTime
+                    continue;
+                }
+
+                // --- Decision Logic for Drone Allocation / Rerouting ---
+
+                // High priority: Maintenance needed
+                if (drone.status === 'maintenance_needed' && !drone.reroutingToBase && calculateDistance(drone.currentLocation, drone.origin) > DRONE_BASE_SPEED * 0.5) {
+                    drone.reroutingToBase = true; // Ensure it's flagged to return to base
+                    drone.destination = drone.origin;
+                    console.log(`Drone ${drone.id} confirms rerouting to base for maintenance.`);
+                }
+                // High priority: Low battery and not already going to a facility or in a queue
+                else if (drone.batteryLevel <= LOW_BATTERY_THRESHOLD && !drone.targetFacility && !drone.chargingQueue && !drone.swappingQueue && drone.status !== 'charging' && drone.status !== 'swapping' && drone.status !== 'idle' && drone.status !== 'maintenance_needed') {
+                    const hub = findNearestAvailable(drone, swapHubs);
+                    if (hub) {
+                        drone.targetFacility = hub;
+                        drone.destination = hub.location; // Set drone's immediate destination to the hub
+                        console.log(`Drone ${drone.id} rerouting to swap hub ${hub.id} due to low battery.`);
+                    } else {
+                        const station = findNearestAvailable(drone, chargingStations);
+                        if (station) {
+                            drone.targetFacility = station;
+                            drone.destination = station.location; // Set drone's immediate destination to the station
+                            console.log(`Drone ${drone.id} rerouting to charging station ${station.id} due to low battery.`);
+                        } else {
+                            // No immediate facility, add to queue
+                            // Check if there's any capacity anywhere (online) before queuing
+                            if (swapHubs.some(h => h.isOnline && h.currentLoad < h.capacity)) {
+                                drone.swappingQueue = true;
+                                console.log(`Drone ${drone.id} added to swapping queue.`);
+                            } else if (chargingStations.some(s => s.isOnline && s.currentLoad < s.capacity)) {
+                                drone.chargingQueue = true;
+                                console.log(`Drone ${drone.id} added to charging queue.`);
+                            }
+                            // Status remains 'low_battery' if just added to queue, it will visually stay put initially
+                        }
+                    }
+                }
+                // If drone is in a queue and a facility becomes available, assign it
+                else if (drone.swappingQueue && !drone.targetFacility) {
+                    const hub = findNearestAvailable(drone, swapHubs);
+                    if (hub) {
+                        drone.targetFacility = hub;
+                        drone.destination = hub.location;
+                        drone.swappingQueue = false;
+                        console.log(`Drone ${drone.id} (from queue) assigned to swap hub ${hub.id}.`);
+                    }
+                } else if (drone.chargingQueue && !drone.targetFacility) {
+                    const station = findNearestAvailable(drone, chargingStations);
+                    if (station) {
+                        drone.targetFacility = station;
+                        drone.destination = station.location;
+                        drone.chargingQueue = false;
+                        console.log(`Drone ${drone.id} (from queue) assigned to charging station ${station.id}.`);
+                    }
+                }
+                // If drone arrived back at base after mission and needs charge
+                else if (drone.status === 'idle' && drone.batteryLevel < 100 && !drone.targetFacility && !drone.chargingQueue && !drone.swappingQueue && drone.status !== 'maintenance_needed') {
+                    const station = findNearestAvailable(drone, chargingStations);
+                    if (station) {
+                        drone.targetFacility = station; // Assign target facility for charging at base
+                        drone.destination = station.location; // Set immediate destination
+                        console.log(`Drone ${drone.id} at base, assigning to ${station.id} for charge.`);
+                    } else {
+                        // Only add to queue if some station is online and has capacity
+                        if (chargingStations.some(s => s.isOnline && s.currentLoad < s.capacity)) {
+                             drone.chargingQueue = true; // No station available, join queue
+                             console.log(`Drone ${drone.id} at base, waiting for charging station.`);
+                        }
+                    }
+                }
+                drone.update(); // Let the drone instance handle its internal state (movement, drain, charge/swap countdown)
+            }
+
+            // Increment line dash offset for marching ants animation
+            animatedLineDashOffset = (animatedLineDashOffset + 0.5) % 10; // Adjust speed and pattern length as needed
+
+            // --- UI Updates ---
+            renderDrones();
+            updateChargingAvailabilityDisplay(); // Call the new function
+            drawMap();
+            updateQueueAnalytics();
+            updateCapacityAlerts(); // New function for alerts
+        }
+
+        // --- UI Rendering Functions ---
+
+        /**
+         * Renders the current state of all drones in their cards.
+         */
+        function renderDrones() {
+            droneListEl.innerHTML = ''; // Clear previous list
+            if (drones.length === 0) {
+                droneListEl.innerHTML = '<p class="text-gray-400 text-center col-span-full">No drones in the fleet. Add one to start!</p>';
+                return;
+            }
+
+            drones.forEach(drone => {
+                let batteryBarColor = 'bg-lime-500'; /* Changed */
+                if (drone.batteryLevel <= LOW_BATTERY_THRESHOLD) {
+                    batteryBarColor = 'bg-rose-600'; /* Changed */
+                } else if (drone.batteryLevel <= 30) {
+                    batteryBarColor = 'bg-amber-500'; /* Changed */
+                }
+
+                // Calculate and display predicted safe range
+                const safeRange = drone.predictRemainingSafeRange().toFixed(1);
+
+                // Add animation classes based on status
+                let statusClass = '';
+                if (drone.status === 'charging') {
+                    statusClass = 'charging-pulse';
+                } else if (drone.status === 'swapping') {
+                    statusClass = 'swapping-pulse';
+                } else if (drone.status === 'emergency_landing') {
+                    statusClass = 'bg-red-900 animate-pulse'; // Special class for emergency
+                } else if (drone.status === 'maintenance_needed' || drone.status === 'under_maintenance') {
+                    statusClass = 'bg-yellow-900 animate-pulse'; // Special class for maintenance
+                }
+
+                const droneCard = `
+                    <div class="card p-4 flex flex-col justify-between ${statusClass}">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2 text-teal-300">${drone.id}</h3> <!-- Changed text color -->
+                            <p class="text-gray-300">Status: <span class="font-semibold text-white">${drone.status.replace(/_/g, ' ').toUpperCase()}</span></p>
+                            <p class="text-gray-300">Payload: ${drone.payloadWeight} kg</p>
+                            <p class="text-gray-300">Route: ${drone.routeDistance.toFixed(1)} km (${drone.distanceCovered.toFixed(1)} km covered)</p>
+                            <p class="text-gray-300">Initial Weather Impact: ${drone.initialWeatherImpact}</p>
+                            <p class="text-gray-300">Location: (${drone.currentLocation.x.toFixed(1)}, ${drone.currentLocation.y.toFixed(1)})</p>
+                            <p class="text-gray-300">Est. Safe Range: <span class="font-bold text-lime-300">${safeRange} km</span></p>
+                            <p class="text-gray-300">Wear & Tear: <span class="font-bold ${drone.wearAndTear >= MAINTENANCE_THRESHOLD ? 'text-red-400' : 'text-gray-300'}">${drone.wearAndTear.toFixed(1)}%</span></p>
+                        </div>
+                        <div class="mt-3">
+                            <p class="text-gray-300">Battery: ${drone.batteryLevel.toFixed(1)}%</p>
+                            <div class="battery-bar-container">
+                                <div class="battery-bar ${batteryBarColor}" style="width: ${drone.batteryLevel}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                droneListEl.innerHTML += droneCard;
+            });
+        }
+
+        /**
+         * Updates the animated charging station and swap hub display.
+         */
+        function updateChargingAvailabilityDisplay() {
+            chargingStationsContainer.innerHTML = ''; // Clear previous display
+
+            // Function to render a single facility card
+            const renderFacilityCard = (facility, type) => {
+                const capacityRatio = facility.currentLoad / facility.capacity;
+                let slotBorderClass = '';
+                if (facility.isOnline) {
+                    if (capacityRatio >= 1) {
+                        slotBorderClass = 'critical'; // Full
+                    } else if (capacityRatio >= APPROACHING_CAPACITY_THRESHOLD) {
+                        slotBorderClass = 'warning'; // Approaching full
+                    }
+                }
+
+                let slotsHtml = '';
+                for (let i = 0; i < facility.capacity; i++) {
+                    let slotClass = '';
+                    let icon = '';
+                    if (!facility.isOnline) {
+                        slotClass = 'offline';
+                        icon = '<i class="fa-solid fa-ban"></i>'; // Ban icon for offline
+                    } else if (i < facility.currentLoad) {
+                        // Occupied slot
+                        if (type === 'charging') {
+                            slotClass = 'occupied-cs charging-animation';
+                            icon = '<i class="fa-solid fa-bolt"></i>'; // Lightning bolt for charging
+                        } else if (type === 'swapping') {
+                            slotClass = 'occupied-sh swapping-animation';
+                            icon = '<i class="fa-solid fa-battery-full"></i>'; // Full battery for swapping
+                        }
+                    } else {
+                        // Empty slot
+                        icon = '<i class="fa-solid fa-circle-dot"></i>'; // Dot for empty slot
+                    }
+                    slotsHtml += `<div class="slot ${slotClass}"><i class="fa-solid fa-drone"></i></div>`; // Always show a drone icon, color indicates status
+                }
+
+                const queuedDronesForFacilityType = drones.filter(d => {
+                    // Filter drones that are explicitly in queue for THIS facility type
+                    if (type === 'charging') return d.chargingQueue;
+                    if (type === 'swapping') return d.swappingQueue;
+                    return false;
+                }).filter(d => !d.targetFacility || d.targetFacility === facility); // Include those targeting *this* facility if not yet entered
+
+
+                const lowBatteryQueued = queuedDronesForFacilityType.filter(d => d.batteryLevel <= LOW_BATTERY_THRESHOLD).length;
+                const maintenanceQueued = queuedDronesForFacilityType.filter(d => d.wearAndTear >= MAINTENANCE_THRESHOLD).length;
+                const predictedWait = facility.predictWaitTime(queuedDronesForFacilityType, type);
+
+                let queueDroneIcons = '';
+                queuedDronesForFacilityType.forEach(qDrone => {
+                    let iconClass = 'queue-drone-icon';
+                    if (qDrone.batteryLevel <= LOW_BATTERY_THRESHOLD) {
+                        iconClass += ' low-batt';
+                    } else if (qDrone.wearAndTear >= MAINTENANCE_THRESHOLD) {
+                        iconClass += ' maintenance';
+                    }
+                    queueDroneIcons += `<i class="fa-solid fa-circle ${iconClass}"></i>`;
+                });
+
+                const facilityCardHtml = `
+                    <div class="facility-card ${slotBorderClass}">
+                        <h3 class="facility-name">${facility.name}</h3>
+                        <p class="facility-status ${facility.isOnline ? 'text-lime-400' : 'text-red-400'}">${facility.isOnline ? 'Online' : 'Offline'}</p>
+                        <p class="text-sm text-gray-300 mb-2">Load: ${facility.currentLoad} / ${facility.capacity}</p>
+                        <div class="slot-container">
+                            ${slotsHtml}
+                        </div>
+                        <div class="queue-info">
+                            <p><span class="label">Total Queued:</span> <span class="value">${queuedDronesForFacilityType.length}</span></p>
+                            <p><span class="label">Low Batt Queued:</span> <span class="value">${lowBatteryQueued}</span></p>
+                            <p><span class="label">Maint Queued:</span> <span class="value">${maintenanceQueued}</span></p>
+                            <p><span class="label">Est. Wait:</span> <span class="value">${predictedWait === Infinity ? 'N/A' : predictedWait + ' ticks'}</span></p>
+                            <p><span class="label">Drones Serviced:</span> <span class="value">${facility.dronesServiced}</span></p>
+                            <div class="mt-2 text-center">
+                                ${queueDroneIcons || '<span class="text-gray-500 text-xs">No drones in queue</span>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                chargingStationsContainer.innerHTML += facilityCardHtml;
+            };
+
+            chargingStations.forEach(station => renderFacilityCard(station, 'charging'));
+            swapHubs.forEach(hub => renderFacilityCard(hub, 'swapping'));
+        }
+
+
+        /**
+         * Draws the operational map showing drones and facilities.
+         */
+        function drawMap() {
+            // Ensure canvas dimensions are set before drawing
+            droneMapCanvas.width = droneMapCanvas.clientWidth;
+            droneMapCanvas.height = droneMapCanvas.clientHeight;
+
+            droneMapCtx.clearRect(0, 0, droneMapCanvas.width, droneMapCtx.height); // Clear previous frame
+
+            // Scale factor to map abstract coordinates (0-100) to canvas pixels
+            // Adjust scale to account for padding
+            const scaleX = (droneMapCanvas.width - 2 * MAP_PADDING) / MAP_COORD_RANGE;
+            const scaleY = (droneMapCanvas.height - 2 * MAP_PADDING) / MAP_COORD_RANGE;
+
+            // Function to map abstract coords to canvas coords
+            const toCanvasX = (x) => x * scaleX + MAP_PADDING;
+            const toCanvasY = (y) => y * scaleY + MAP_PADDING;
+
+            // Store clickable regions
+            let clickableRegions = [];
+
+            // Draw Facilities (Charging Stations)
+            chargingStations.forEach(station => {
+                droneMapCtx.fillStyle = station.isOnline ? '#4299e1' : '#718096'; // Blue if online, gray if offline
+                droneMapCtx.beginPath();
+                droneMapCtx.arc(toCanvasX(station.location.x), toCanvasY(station.location.y), FACILITY_SIZE, 0, Math.PI * 2);
+                droneMapCtx.fill();
+                droneMapCtx.strokeStyle = station.currentLoad > 0 ? '#ffffff' : '#4a5568'; // White if occupied, dark gray if empty
+                droneMapCtx.lineWidth = 2;
+                droneMapCtx.stroke();
+                droneMapCtx.fillStyle = '#ffffff';
+                droneMapCtx.font = '12px Inter';
+                droneMapCtx.textAlign = 'center'; // Center text
+                droneMapCtx.fillText(station.name, toCanvasX(station.location.x), toCanvasY(station.location.y) - 10);
+
+                // Add pulsating ring if a drone is charging there
+                if (drones.some(d => d.targetFacility === station && d.status === 'charging')) {
+                    const currentPulseRadius = FACILITY_SIZE + (Math.sin(Date.now() * 0.005) + 1) * 5; // Animate radius
+                    droneMapCtx.beginPath();
+                    droneMapCtx.arc(toCanvasX(station.location.x), toCanvasY(station.location.y), currentPulseRadius, 0, Math.PI * 2);
+                    droneMapCtx.strokeStyle = 'rgba(66, 153, 225, ' + (1 - (currentPulseRadius - FACILITY_SIZE) / 10) + ')'; // Fade out
+                    droneMapCtx.lineWidth = 3;
+                    droneMapCtx.stroke();
+                }
+
+                // Add to clickable regions
+                clickableRegions.push({
+                    type: 'facility',
+                    id: station.id,
+                    name: station.name,
+                    x: toCanvasX(station.location.x),
+                    y: toCanvasY(station.location.y),
+                    radius: FACILITY_SIZE,
+                    data: station
+                });
+            });
+
+            // Draw Facilities (Swap Hubs)
+            swapHubs.forEach(hub => {
+                droneMapCtx.fillStyle = hub.isOnline ? '#ed8936' : '#718096'; // Orange if online, gray if offline
+                droneMapCtx.beginPath();
+                droneMapCtx.arc(toCanvasX(hub.location.x), toCanvasY(hub.location.y), FACILITY_SIZE, 0, Math.PI * 2);
+                droneMapCtx.fill();
+                droneMapCtx.strokeStyle = hub.currentLoad > 0 ? '#ffffff' : '#4a5568'; // White if occupied, dark gray if empty
+                droneMapCtx.lineWidth = 2;
+                droneMapCtx.stroke();
+                droneMapCtx.fillStyle = '#ffffff';
+                droneMapCtx.font = '12px Inter';
+                droneMapCtx.textAlign = 'center'; // Center text
+                droneMapCtx.fillText(hub.name, toCanvasX(hub.location.x), toCanvasY(hub.location.y) - 10);
+
+                // Add pulsating ring if a drone is swapping there OR if it's a satellite hub (continuous pulse)
+                if (drones.some(d => d.targetFacility === hub && d.status === 'swapping') || hub.isSatellite) {
+                    const pulseRadius = FACILITY_SIZE + (Math.sin(Date.now() * 0.005) + 1) * 5; // Animate radius
+                    droneMapCtx.beginPath();
+                    droneMapCtx.arc(toCanvasX(hub.location.x), toCanvasY(hub.location.y), pulseRadius, 0, Math.PI * 2);
+                    droneMapCtx.strokeStyle = 'rgba(237, 137, 54, ' + (1 - (pulseRadius - FACILITY_SIZE) / 10) + ')'; // Fade out
+                    droneMapCtx.lineWidth = 3;
+                    droneMapCtx.stroke();
+                }
+
+                // Draw satellite antenna if it's a satellite hub (simple SVG-like drawing)
+                if (hub.isSatellite) {
+                    const satX = toCanvasX(hub.location.x);
+                    const satY = toCanvasY(hub.location.y);
+                    droneMapCtx.strokeStyle = '#a0aec0'; // Gray for antenna
+                    droneMapCtx.lineWidth = 1;
+                    droneMapCtx.beginPath();
+                    // Main mast
+                    droneMapCtx.moveTo(satX, satY - FACILITY_SIZE);
+                    droneMapCtx.lineTo(satX, satY - FACILITY_SIZE - 10);
+                    // Dish
+                    droneMapCtx.arc(satX, satY - FACILITY_SIZE - 10, 5, Math.PI, 0, false); // Half-circle
+                    droneMapCtx.stroke();
+                    droneMapCtx.fillStyle = '#a0aec0'; // Fill antenna base for stronger look
+                    droneMapCtx.fillRect(satX - 1, satY - FACILITY_SIZE - 10, 2, 10);
+                }
+
+                // Add to clickable regions
+                clickableRegions.push({
+                    type: 'facility',
+                    id: hub.id,
+                    name: hub.name,
+                    x: toCanvasX(hub.location.x),
+                    y: toCanvasY(hub.location.y),
+                    radius: FACILITY_SIZE,
+                    data: hub
+                });
+            });
+
+            // Draw Drones and Paths
+            drones.forEach(drone => {
+                if (drone.status === 'emergency_landing') {
+                    // Draw a crashed drone icon
+                    droneMapCtx.fillStyle = 'darkred';
+                    droneMapCtx.beginPath();
+                    droneMapCtx.rect(toCanvasX(drone.currentLocation.x) - DRONE_RADIUS, toCanvasY(drone.currentLocation.y) - DRONE_RADIUS, DRONE_RADIUS * 2, DRONE_RADIUS * 2);
+                    droneMapCtx.fill();
+                    droneMapCtx.strokeStyle = 'red';
+                    droneMapCtx.lineWidth = 2;
+                    droneMapCtx.stroke();
+                    droneMapCtx.fillStyle = '#ffffff';
+                    droneMapCtx.font = '10px Inter';
+                    droneMapCtx.textAlign = 'center'; // Center text
+                    droneMapCtx.fillText("CRASHED", toCanvasX(drone.currentLocation.x), toCanvasY(drone.currentLocation.y) - 10);
+                    return; // Don't draw path or target line for crashed drones
+                }
+
+                // Draw path history (solid white line)
+                if (drone.pathHistory.length > 1) {
+                    droneMapCtx.beginPath();
+                    droneMapCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Semi-transparent white path
+                    droneMapCtx.lineWidth = 1;
+                    droneMapCtx.moveTo(toCanvasX(drone.pathHistory[0].x), toCanvasY(drone.pathHistory[0].y));
+                    for (let i = 1; i < drone.pathHistory.length; i++) {
+                        droneMapCtx.lineTo(toCanvasX(drone.pathHistory[i].x), toCanvasY(drone.pathHistory[i].y));
+                    }
+                    droneMapCtx.stroke();
+                }
+
+                // Draw drone icon (circle)
+                let droneColor;
+                if (drone.status === 'emergency_landing') {
+                    droneColor = 'black'; // Should be handled by emergency_landing return
+                } else if (drone.status === 'maintenance_needed' || drone.status === 'under_maintenance') {
+                    droneColor = '#fbbf24'; // Yellow for maintenance
+                } else if (drone.batteryLevel <= LOW_BATTERY_THRESHOLD) {
+                    droneColor = '#e11d48'; /* Rose Red */
+                } else if (drone.batteryLevel <= 30) {
+                    droneColor = '#fbbf24'; /* Amber */
+                } else {
+                    droneColor = '#84cc16'; /* Lime Green */
+                }
+
+                droneMapCtx.fillStyle = droneColor;
+                droneMapCtx.beginPath();
+                droneMapCtx.arc(toCanvasX(drone.currentLocation.x), toCanvasY(drone.currentLocation.y), DRONE_RADIUS, 0, Math.PI * 2);
+                droneMapCtx.fill();
+                droneMapCtx.strokeStyle = '#ffffff'; // White border
+                droneMapCtx.lineWidth = 1;
+                droneMapCtx.stroke();
+                droneMapCtx.fillStyle = '#ffffff';
+                droneMapCtx.font = '10px Inter';
+                droneMapCtx.textAlign = 'center'; // Center text
+                droneMapCtx.fillText(drone.id, toCanvasX(drone.currentLocation.x), toCanvasY(drone.currentLocation.y) - 10);
+
+                // Add a subtle aura/glow behind the drone (fading trail)
+                if (drone.status === 'en_route' || drone.reroutingToBase || drone.status === 'low_battery' || drone.chargingQueue || drone.swappingQueue || drone.status === 'maintenance_needed') {
+                    for (let i = 0; i < 3; i++) { // Draw multiple fading circles
+                        const auraRadius = DRONE_RADIUS + 2 + i * 2;
+                        droneMapCtx.beginPath();
+                        droneMapCtx.arc(toCanvasX(drone.currentLocation.x), toCanvasY(drone.currentLocation.y), auraRadius, 0, Math.PI * 2);
+                        droneMapCtx.fillStyle = `rgba(255, 255, 255, ${0.1 - i * 0.03})`; // Fading white
+                        droneMapCtx.fill();
+                    }
+                }
+
+                // Draw dashed line to target facility or mission destination if actively moving towards one
+                if (drone.status !== 'idle' && drone.status !== 'charging' && drone.status !== 'swapping' && drone.status !== 'emergency_landing' && drone.status !== 'under_maintenance') {
+                    let targetPoint = null;
+                    if (drone.targetFacility) {
+                        targetPoint = drone.targetFacility.location;
+                    } else if (drone.reroutingToBase || drone.status === 'maintenance_needed') {
+                        targetPoint = drone.origin; // For maintenance, target is origin
+                    } else if (drone.status === 'en_route') {
+                        targetPoint = drone.missionFinalDestination;
+                    }
+
+                    if (targetPoint) {
+                        droneMapCtx.beginPath();
+                        droneMapCtx.strokeStyle = 'yellow';
+                        droneMapCtx.setLineDash([8, 8]); // Dashed line pattern, increased length
+                        droneMapCtx.lineDashOffset = -animatedLineDashOffset; // Apply marching ants offset
+                        droneMapCtx.moveTo(toCanvasX(drone.currentLocation.x), toCanvasY(drone.currentLocation.y));
+                        droneMapCtx.lineTo(toCanvasX(targetPoint.x), toCanvasY(targetPoint.y));
+                        droneMapCtx.stroke();
+                        droneMapCtx.setLineDash([]); // Reset line dash for next drawings
+                        droneMapCtx.lineDashOffset = 0; // Reset offset
+                    }
+                }
+
+                // Add to clickable regions
+                clickableRegions.push({
+                    type: 'drone',
+                    id: drone.id,
+                    x: toCanvasX(drone.currentLocation.x),
+                    y: toCanvasY(drone.currentLocation.y),
+                    radius: DRONE_RADIUS,
+                    data: drone
+                });
+            });
+
+            // Store clickable regions globally for event listener
+            droneMapCanvas.dataset.clickableRegions = JSON.stringify(clickableRegions);
+        }
+
+
+        /**
+         * Updates the drone queue analytics display.
+         */
+        function updateQueueAnalytics() {
+            const chargingQueue = drones.filter(d => d.chargingQueue).length;
+            const swappingQueue = drones.filter(d => d.swappingQueue).length;
+
+            // Animate queue counts if they change
+            if (chargingQueueCountEl.textContent != chargingQueue) {
+                chargingQueueCountEl.classList.add('count-update-success');
+                setTimeout(() => chargingQueueCountEl.classList.remove('count-update-success'), 500);
+            }
+            if (swappingQueueCountEl.textContent != swappingQueue) {
+                swappingQueueCountEl.classList.add('count-update-success');
+                setTimeout(() => swappingQueueCountEl.classList.remove('count-update-success'), 500);
+            }
+            chargingQueueCountEl.textContent = chargingQueue;
+            swappingQueueCountEl.textContent = swappingQueue;
+
+            // Animate mission counts
+            if (missionsCompletedCountEl.textContent != missionsCompleted) {
+                missionsCompletedCountEl.classList.add('count-update-success');
+                setTimeout(() => missionsCompletedCountEl.classList.remove('count-update-success'), 500);
+            }
+            if (emergencyLandingsCountEl.textContent != emergencyLandings) {
+                emergencyLandingsCountEl.classList.add('count-update-danger');
+                setTimeout(() => emergencyLandingsCountEl.classList.remove('count-update-danger'), 500);
+            }
+            missionsCompletedCountEl.textContent = missionsCompleted;
+            emergencyLandingsCountEl.textContent = emergencyLandings;
+
+            // Animate maintenance count
+            if (maintenanceCountEl.textContent != dronesUnderMaintenance) {
+                maintenanceCountEl.classList.add('count-update-danger'); // Use danger for now, or new style
+                setTimeout(() => maintenanceCountEl.classList.remove('count-update-danger'), 500);
+            }
+            maintenanceCountEl.textContent = dronesUnderMaintenance;
+        }
+
+        /**
+         * Updates capacity alerts based on facility load and online status.
+         */
+        function updateCapacityAlerts() {
+            capacityAlertsEl.innerHTML = '';
+            const fullChargingStations = chargingStations.filter(s => s.isOnline && s.currentLoad >= s.capacity);
+            const fullSwapHubs = swapHubs.filter(h => h.isOnline && h.currentLoad >= h.capacity);
+            const offlineFacilities = [...chargingStations, ...swapHubs].filter(f => !f.isOnline);
+            const approachingFullChargingStations = chargingStations.filter(s => s.isOnline && s.currentLoad / s.capacity >= APPROACHING_CAPACITY_THRESHOLD && s.currentLoad < s.capacity);
+            const approachingFullSwapHubs = swapHubs.filter(h => h.isOnline && h.currentLoad / h.capacity >= APPROACHING_CAPACITY_THRESHOLD && h.currentLoad < h.capacity);
+
+            if (fullChargingStations.length > 0) {
+                capacityAlertsEl.innerHTML += `<p class="text-red-400">🚨 Charging Stations Full: ${fullChargingStations.map(s => s.name).join(', ')}</p>`;
+            }
+            if (fullSwapHubs.length > 0) {
+                capacityAlertsEl.innerHTML += `<p class="text-red-400">🚨 Swap Hubs Full: ${fullSwapHubs.map(h => h.name).join(', ')}</p>`;
+            }
+            if (approachingFullChargingStations.length > 0) {
+                 capacityAlertsEl.innerHTML += `<p>⚠️ Charging Stations Approaching Full: ${approachingFullChargingStations.map(s => s.name).join(', ')}</p>`;
+            }
+            if (approachingFullSwapHubs.length > 0) {
+                 capacityAlertsEl.innerHTML += `<p>⚠️ Swap Hubs Approaching Full: ${approachingFullSwapHubs.map(h => h.name).join(', ')}</p>`;
+            }
+            if (offlineFacilities.length > 0) {
+                capacityAlertsEl.innerHTML += `<p class="text-red-400">🚨 Facilities Offline: ${offlineFacilities.map(f => f.name).join(', ')}</p>`;
+            }
+        }
+
+
+        // --- Event Listeners ---
+        addDroneBtn.addEventListener('click', () => {
+            const payload = parseFloat(newDronePayloadEl.value);
+            const route = parseFloat(newDroneRouteEl.value);
+            const weather = parseInt(newDroneWeatherEl.value);
+
+            if (isNaN(payload) || payload < 0 || isNaN(route) || route < 1 || isNaN(weather) || weather < 1 || weather > 5) {
+                createMessageBox('Please enter valid inputs for payload, route, and initial weather (1-5).');
+                return;
+            }
+            addNewDrone(payload, route, weather);
+        });
+
+        simulationSpeedSlider.addEventListener('input', (event) => {
+            currentSimulationSpeed = parseInt(event.target.value);
+            simulationSpeedDisplayEl.textContent = `${currentSimulationSpeed}x`;
+            // Clear existing interval and set new one
+            clearInterval(simulationIntervalId);
+            simulationIntervalId = setInterval(simulationTick, 1000 / currentSimulationSpeed);
+        });
+
+        droneMapCanvas.addEventListener('click', (event) => {
+            const rect = droneMapCanvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            const clickableRegions = JSON.parse(droneMapCanvas.dataset.clickableRegions || '[]');
+
+            for (const region of clickableRegions) {
+                const distance = calculateDistance({x: mouseX, y: mouseY}, {x: region.x, y: region.y});
+                if (distance < region.radius) {
+                    // Clicked on a region, show modal with its details
+                    if (region.type === 'drone') {
+                        const drone = drones.find(d => d.id === region.id);
+                        if (drone) {
+                            const content = `
+                                <p><strong>ID:</strong> ${drone.id}</p>
+                                <p><strong>Status:</strong> ${drone.status.replace(/_/g, ' ').toUpperCase()}</p>
+                                <p><strong>Battery:</strong> ${drone.batteryLevel.toFixed(1)}%</p>
+                                <p><strong>Wear & Tear:</strong> ${drone.wearAndTear.toFixed(1)}%</p>
+                                <p><strong>Payload:</strong> ${drone.payloadWeight} kg</p>
+                                <p><strong>Location:</strong> (${drone.currentLocation.x.toFixed(1)}, ${drone.currentLocation.y.toFixed(1)})</p>
+                                <p><strong>Est. Safe Range:</strong> ${drone.predictRemainingSafeRange().toFixed(1)} km</p>
+                                <p><strong>Est. Flight Time:</strong> ${drone.predictRemainingFlightTime().toFixed(0)} ticks</p>
+                                ${drone.targetFacility ? `<p><strong>Target Facility:</strong> ${drone.targetFacility.name} (${drone.targetFacility.id})</p>` : ''}
+                                ${drone.chargingQueue ? '<p><strong>In Charging Queue</strong></p>' : ''}
+                                ${drone.swappingQueue ? '<p><strong>In Swapping Queue</strong></p>' : ''}
+                            `;
+                            showModal(`Drone Details: ${drone.id}`, content);
+                        }
+                    } else if (region.type === 'facility') {
+                        const facility = [...chargingStations, ...swapHubs].find(f => f.id === region.id);
+                        if (facility) {
+                            const queuedDronesForFacilityType = drones.filter(d => {
+                                if (facility.id.startsWith('CS')) return d.chargingQueue;
+                                if (facility.id.startsWith('SH')) return d.swappingQueue;
+                                return false;
+                            });
+
+                            const lowBatteryQueued = queuedDronesForFacilityType.filter(d => d.batteryLevel <= LOW_BATTERY_THRESHOLD).length;
+                            const maintenanceQueued = queuedDronesForFacilityType.filter(d => d.wearAndTear >= MAINTENANCE_THRESHOLD).length;
+                            const predictedWait = facility.predictWaitTime(queuedDronesForFacilityType, facility.id.startsWith('CS') ? 'charging' : 'swapping');
+
+                            const content = `
+                                <p><strong>Name:</strong> ${facility.name}</p>
+                                <p><strong>ID:</strong> ${facility.id}</p>
+                                <p><strong>Status:</strong> ${facility.isOnline ? '<span class="text-lime-400">Online</span>' : '<span class="text-red-400">Offline</span>'}</p>
+                                <p><strong>Load:</strong> ${facility.currentLoad} / ${facility.capacity}</p>
+                                <p><strong>Type:</strong> ${facility.id.startsWith('CS') ? 'Charging Station' : 'Battery Swap Hub'}</p>
+                                <p><strong>Estimated Wait Time:</strong> ${predictedWait} ticks</p>
+                                <p><strong>Total Queued:</strong> ${queuedDronesForFacilityType.length}</p>
+                                <p><strong>Low Battery Queued:</strong> ${lowBatteryQueued}</p>
+                                <p><strong>Maintenance Queued:</strong> ${maintenanceQueued}</p>
+                                <p><strong>Drones Serviced:</strong> ${facility.dronesServiced}</p>
+                            `;
+                            showModal(`Facility Details: ${facility.name}`, content);
+                        }
+                    }
+                    return; // Stop after finding the first clicked item
+                }
+            }
+        });
+
+
+        // --- Initial Setup and Start Simulation ---
+        window.onload = function() {
+            // Set background canvas dimensions to fill window
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            initStars(); // Initialize stars
+            animateStars(); // Start background animation
+
+            // Set main canvas dimensions explicitly for drawing for both canvases
+            // Removed chargingGraphCanvas.width/height as it's now a div
+
+            droneMapCanvas.width = droneMapCanvas.clientWidth; // Ensure it takes full available width
+            droneMapCanvas.height = 400; // Keep fixed height for map for consistent layout
+
+            initializeFacilities();
+            // Add a couple of initial drones for demonstration
+            addNewDrone(5, 30, 1);
+            addNewDrone(10, 50, 3);
+            addNewDrone(2, 20, 2);
+
+            // Set initial weather display
+            currentWeatherDisplayEl.textContent = currentWeatherImpact;
+            mapWeatherDisplayEl.textContent = `Weather: ${currentWeatherImpact === 1 ? 'Clear' : currentWeatherImpact === 5 ? 'Stormy' : 'Variable'}`;
+
+            // Start the simulation loop
+            simulationIntervalId = setInterval(simulationTick, 1000 / currentSimulationSpeed); // Initial speed
+            renderDrones(); // Initial render
+            updateChargingAvailabilityDisplay(); // Initial display of the new animated view
+            drawMap(); // Initial map draw
+            updateQueueAnalytics(); // Initial queue analytics
+            updateCapacityAlerts(); // Initial capacity alerts
+        }
+
+        // Handle window resize for background canvas
+        window.addEventListener('resize', () => {
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            initStars(); // Simple re-init for now
+
+            // No need to adjust chargingStationsContainer width/height here as it's handled by Tailwind grid/flex
+            droneMapCanvas.width = droneMapCanvas.clientWidth;
+            // droneMapCanvas.height remains fixed as per CSS, or set dynamically if needed based on aspect ratio logic
+
+            // Redraw everything to fit new dimensions
+            updateChargingAvailabilityDisplay(); // Redraw the animated display
+            drawMap();
+        });
+    </script>
+    {% endverbatim %}
+
+    {% include "navbar.html" %}
+</body>
+</html>

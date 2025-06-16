@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Saarthi Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { margin:0; font-family:Poppins,sans-serif; background:#fff; color:#333; }
+    header { padding:20px; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    header h1 { margin:0; font-size:32px; }
+    .green { color:#00b359; } .blue { color:#007bff; }
+    .container { padding:20px; }
+    .search-bar { text-align:center; margin-bottom:20px; }
+    .search-bar input, .search-bar button {
+      padding:10px 16px; border-radius:8px; border:1px solid #ccc; font-size:16px;
+      outline:none; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:0.3s;
+    }
+    .search-bar input:focus { border-color:#007bff; }
+    .search-bar button { margin-left:10px; background:#007bff; color:#fff; cursor:pointer; }
+    .search-bar button:hover { background:#0056b3; }
+    .store-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px; margin-bottom:30px; }
+    .store-card {
+      background:#f8f9fa; padding:20px; border-radius:15px; text-align:center;
+      box-shadow:0 5px 15px rgba(0,0,0,0.05); transition:transform 0.3s, box-shadow 0.3s, background 0.3s; cursor:pointer;
+    }
+    .store-card:hover {
+      transform:translateY(-6px);
+      box-shadow:0 12px 24px rgba(0,123,255,0.2);
+      background:#eef4ff;
+    }
+    .store-card h3 { margin:10px 0; font-size:20px; color:#007bff; }
+    .store-card button {
+      padding:10px 18px; margin-top:10px; background:#007bff; color:#fff;
+      border:none; border-radius:8px; cursor:pointer; transition:0.3s;
+    }
+    .store-card button:hover { background:#0056b3; }
+    .cards, .charts { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; }
+    .card, .chart-card {
+      flex:1 1 240px; background:#f8f9fa; padding:20px; border-radius:15px;
+      box-shadow:0 5px 15px rgba(0,0,0,0.05); transition:transform 0.3s, box-shadow 0.3s;
+    }
+    .card:hover, .chart-card:hover {
+      transform:translateY(-6px); box-shadow:0 12px 24px rgba(0,123,255,0.2);
+    }
+    .card h3 { margin:0; font-size:18px; color:#555; }
+    .card p { margin-top:8px; font-size:24px; font-weight:600; color:#007bff; }
+    .chart-card h3 { margin-top:0; font-size:18px; color:#555; text-align:center; }
+    .modal {
+      display:none; position:fixed; top:0;left:0;width:100%;height:100%;
+      background:rgba(0,0,0,0.4); justify-content:center; align-items:center;
+    }
+    .modal-content {
+      position:relative; background:#fff; padding:30px; border-radius:12px;
+      animation:slideUp 0.4s ease; box-shadow:0 8px 30px rgba(0,0,0,0.2);
+      width:90%; max-width:360px;
+    }
+    .close-btn {
+      position:absolute; top:10px; right:14px; font-size:24px; cursor:pointer; color:#666;
+    }
+    .modal-content h2 { margin-bottom:10px; color:#007bff; }
+    .modal-content p { margin:8px 0 20px; color:#555; }
+    .modal-content input {
+      width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;
+    }
+    .modal-content button {
+      padding:10px 16px; margin:6px 4px; border:none; border-radius:6px;
+      cursor:pointer; background:#007bff; color:#fff; transition:0.3s;
+    }
+    .modal-content button:hover { background:#0056b3; }
+    #resendBtn {
+      background:#ff7300;
+    }
+    #resendBtn:disabled {
+      background:#ccc; cursor:not-allowed;
+    }
+    #loginStatus { font-weight:600; margin-top:12px; }
+    @keyframes slideUp {
+      from { transform:translateY(80px); opacity:0 }
+      to { transform:translateY(0); opacity:1 }
+    }
+    @media (max-width:600px) {
+      .cards, .charts { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+
+<header><h1><span class="green">Saarthi</span> <span class="blue">Dashboard</span></h1></header>
+<div class="container">
+  <div class="search-bar">
+    <input type="text" id="searchBar" placeholder="Search stores..." onkeyup="searchStores()">
+    <button onclick="clearSearch()">Clear</button>
+  </div>
+
+  <div class="store-list" id="storeList">
+    <div class="store-card"><h3>Walmart</h3><button onclick="openModal('Walmart')">Open Dashboard</button></div>
+    <div class="store-card"><h3>Reliance</h3><button onclick="openModal('Reliance')">Open Dashboard</button></div>
+    <div class="store-card"><h3>Big Bazaar</h3><button onclick="openModal('Big Bazaar')">Open Dashboard</button></div>
+    <div class="store-card"><h3>D-Mart</h3><button onclick="openModal('D-Mart')">Open Dashboard</button></div>
+    <div class="store-card"><h3>Metro</h3><button onclick="openModal('Metro')">Open Dashboard</button></div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><h3>Total Sales</h3><p>₹45,54,41,162</p></div>
+    <div class="card"><h3>This Week</h3><p>June 12, 2025</p></div>
+    <div class="card"><h3>Year to Date</h3><p>₹2,00,01,32,859</p></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card"><h3>Sales vs Date</h3><canvas id="salesChart"></canvas></div>
+    <div class="chart-card"><h3>Top 5 Store Sales</h3><canvas id="topStoresChart"></canvas></div>
+  </div>
+</div>
+
+<div class="modal" id="loginModal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeModal()">&times;</span>
+    <h2 id="storeName">Login</h2>
+    <p id="storeMsg"></p>
+    <div id="loginOptions">
+      <button onclick="showEmailLogin()">Email Login</button>
+      <button onclick="showMobileLogin()">Mobile Login</button>
+    </div>
+    <div id="emailLogin" style="display:none;">
+      <input type="email" id="email" placeholder="Email"><br>
+      <input type="password" id="password" placeholder="Password"><br>
+      <button onclick="submitEmailLogin()">Login</button>
+    </div>
+    <div id="mobileLogin" style="display:none;">
+      <input type="text" id="mobile" placeholder="Mobile Number"><br>
+      <input type="text" id="otp" placeholder="OTP"><br>
+      <button onclick="submitMobileLogin()">Login</button>
+      <button id="resendBtn" onclick="startResendTimer()" disabled>Resend OTP (30s)</button>
+    </div>
+    <p id="loginStatus"></p>
+  </div>
+</div>
+
+<script>
+  let timer, timeLeft = 30;
+
+  function searchStores(){
+    const q = document.getElementById('searchBar').value.toLowerCase();
+    document.querySelectorAll('.store-card').forEach(c=>{
+      c.style.display = c.innerText.toLowerCase().includes(q)? 'block':'none';
+    });
+  }
+  function clearSearch(){
+    document.getElementById('searchBar').value='';searchStores();
+  }
+
+  function openModal(store){
+    document.getElementById('loginModal').style.display='flex';
+    document.getElementById('storeName').innerText = store + ' Login';
+    document.getElementById('storeMsg').innerText = 'Welcome to ' + store + '! Please login to continue.';
+    ['loginOptions','emailLogin','mobileLogin'].forEach(el=>document.getElementById(el).style.display = el==='loginOptions'?'block':'none');
+    resetResend(); document.getElementById('loginStatus').innerText='';
+  }
+
+  function closeModal(){
+    document.getElementById('loginModal').style.display='none';
+    clearInterval(timer);
+  }
+
+  function showEmailLogin(){
+    document.getElementById('loginOptions').style.display='none';
+    document.getElementById('emailLogin').style.display='block';
+  }
+
+  function showMobileLogin(){
+    document.getElementById('loginOptions').style.display='none';
+    document.getElementById('mobileLogin').style.display='block';
+    startResendTimer();
+  }
+
+  function submitEmailLogin(){
+    const em = document.getElementById('email').value.trim(),
+          pw = document.getElementById('password').value.trim();
+    const st = document.getElementById('loginStatus');
+    if(!em||!pw){
+      st.style.color='red'; st.innerText='Please fill both fields.';
+    } else {
+      st.style.color='green'; st.innerText='Login successful ✅';
+    }
+  }
+
+  function submitMobileLogin(){
+    const mb = document.getElementById('mobile').value.trim(),
+          otp = document.getElementById('otp').value.trim();
+    const st = document.getElementById('loginStatus');
+    if(mb.length!==10||!otp){
+      st.style.color='red'; st.innerText='Enter valid mobile and OTP.';
+    } else {
+      st.style.color='green'; st.innerText='Login successful ✅';
+    }
+  }
+
+  function startResendTimer(){
+    const btn = document.getElementById('resendBtn');
+    btn.disabled = true; timeLeft=30;
+    btn.innerText = `Resend OTP (${timeLeft}s)`;
+    timer = setInterval(()=>{
+      timeLeft--;
+      btn.innerText = `Resend OTP (${timeLeft}s)`;
+      if(timeLeft<=0){
+        clearInterval(timer);
+        btn.disabled=false;
+        btn.innerText='Resend OTP';
+      }
+    },1000);
+  }
+
+  function resetResend(){
+    clearInterval(timer);
+    const btn = document.getElementById('resendBtn');
+    btn.disabled=true; btn.innerText='Resend OTP (30s)';
+  }
+
+  // Charts
+  new Chart(document.getElementById('salesChart'), {
+    type:'line',
+    data:{
+      labels:['May10','May17','May24','May31','Jun7','Jun14'],
+      datasets:[
+        { label:'This Year', data:[420,450,470,430,440,460], borderColor:'#007bff', tension:0.4 },
+        { label:'Last Year', data:[400,430,450,420,430,440], borderColor:'#17a2b8', tension:0.4 }
+      ]
+    }
+  });
+  new Chart(document.getElementById('topStoresChart'), {
+    type:'bar',
+    data:{
+      labels:['Walmart','Reliance','Big Bazaar','D-Mart','Metro'],
+      datasets:[{
+        label:'Sales ₹ M',
+        data:[190,170,150,130,120],
+        backgroundColor:['#007bff','#28a745','#ff9800','#9c27b0','#17a2b8']
+      }]
+    },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}} }
+  });
+</script>
+{% include "navbar.html" %}
+</body></html>

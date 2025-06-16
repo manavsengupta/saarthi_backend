@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Saarthi – Transforming Retail Supply Chains</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Animate.css for extra animations -->
+         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31,38,135,0.37);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+        .glow {
+            box-shadow: 0 0 24px 4px #14b8a6, 0 0 8px 2px #38bdf8;
+        }
+        .card-anim {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-anim:hover {
+            transform: translateY(-8px) scale(1.03) rotate(-1deg);
+            box-shadow: 0 0 32px 8px #38bdf8, 0 0 16px 4px #14b8a6;
+        }
+        .fade-in {
+            animation: fadeIn 1.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(40px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans">
+
+    <!-- Hero Section -->
+    <section class="flex flex-col items-center justify-center min-h-[60vh] px-4 fade-in">
+        <h1 class="text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 mb-4 animate__animated animate__fadeInDown">
+            Saarthi
+        </h1>
+        <p class="text-xl md:text-2xl text-center max-w-3xl mb-6 text-slate-200 animate__animated animate__fadeInUp">
+            Transforming retail supply chains: From inventory management to last-mile delivery
+        </p>
+        <div class="glass p-6 md:p-8 max-w-4xl text-lg text-slate-200 shadow-xl animate__animated animate__fadeInUp">
+            <p class="mb-2">
+                Efficiency is the foundation of modern retail. Behind every seamless shopping experience lies a sophisticated network of logistics, inventory management and last-mile delivery operations, ensuring that the right products reach the right customers at the right time.
+            </p>
+            <p class="mb-2">
+                Predictive analytics and AI-driven demand forecasting are revolutionizing inventory management, helping retailers maintain optimal stock levels and prevent both shortages and overstock. Adaptive retail strategies are bridging the gap between digital and physical shopping, allowing for seamless omnichannel experiences.
+            </p>
+            <p class="mb-2">
+                The last mile—often the most expensive and complex part of the supply chain—is also undergoing rapid innovation. Autonomous delivery solutions, drone logistics and AI-powered route optimization are making deliveries faster, more efficient and more sustainable.
+            </p>
+            <p class="mb-2">
+                <span class="font-semibold text-teal-300">Now, it’s your turn.</span> Think of solutions on how technology can further optimize every step of the retail supply chain—from inventory management to last-mile logistics. Can your ideas help retailers create a future where supply chains are seamless, adaptive and ultra-efficient?
+            </p>
+        </div>
+    </section>
+
+    <!-- Modules Section -->
+    <section class="max-w-6xl mx-auto px-4 py-10">
+        <h2 class="text-3xl font-bold mb-8 text-center text-cyan-300 animate__animated animate__fadeIn">Explore Saarthi Modules</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Card for each module -->
+            <div class="glass card-anim glow p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-gauge-high"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-teal-300">Admin Dashboard</h3>
+                <p class="text-center mb-4">Manage users, monitor system health, and oversee all operations from a unified admin panel.</p>
+                <a href="{% url 'dynamic_render' 'admin' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Admin</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.1s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-battery-full"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-lime-300">Battery Management</h3>
+                <p class="text-center mb-4">Monitor and optimize drone battery usage for uninterrupted last-mile delivery.</p>
+                <a href="{% url 'dynamic_render' 'battery' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-lime-500 to-green-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Battery</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.2s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-warehouse"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-cyan-300">Inventory Overview</h3>
+                <p class="text-center mb-4">Real-time inventory tracking and analytics for smarter stock management.</p>
+                <a href="{% url 'dynamic_render' 'inventory' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Inventory</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.3s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-list"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-fuchsia-300">Product Listing</h3>
+                <p class="text-center mb-4">Browse, add, and manage products seamlessly across the supply chain.</p>
+                <a href="{% url 'dynamic_render' 'productlisting' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Products</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.4s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-cubes"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-orange-300">Optimal LWH</h3>
+                <p class="text-center mb-4">Calculate optimal Length, Width, Height for efficient storage and shipping.</p>
+                <a href="{% url 'dynamic_render' 'optimalwh' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to LWH</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.5s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-layer-group"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-blue-300">Product List Dashboard</h3>
+                <p class="text-center mb-4">Visualize and manage your entire product catalog with advanced analytics.</p>
+                <a href="{% url 'dynamic_render' 'productlistdashboard' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Dashboard</a>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.6s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-database"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-violet-300">Multi-Drone Index</h3>
+                <p class="text-center mb-4">Monitor and control multiple drones for scalable last-mile delivery.</p>
+                <a href="{% url 'dynamic_render' 'multidrone_index' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Multi-Drone</a>
+            </div>
+            <!-- Inventory Steps -->
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.7s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-boxes-stacked"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-yellow-300">Inventory Steps</h3>
+                <p class="text-center mb-4">Stepwise inventory management: add, update, and track stock efficiently.</p>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'dynamic_render' 'invent1' %}" class="px-3 py-1 rounded bg-yellow-500 text-white font-bold shadow hover:scale-105 transition">Step 1</a>
+                    <a href="{% url 'dynamic_render' 'invent2' %}" class="px-3 py-1 rounded bg-yellow-400 text-white font-bold shadow hover:scale-105 transition">Step 2</a>
+                    <a href="{% url 'dynamic_render' 'invent3' %}" class="px-3 py-1 rounded bg-yellow-300 text-white font-bold shadow hover:scale-105 transition">Step 3</a>
+                    <a href="{% url 'dynamic_render' 'invent4' %}" class="px-3 py-1 rounded bg-yellow-200 text-slate-900 font-bold shadow hover:scale-105 transition">Step 4</a>
+                </div>
+            </div>
+            <div class="glass card-anim p-6 flex flex-col items-center fade-in animate__animated animate__fadeInUp" style="animation-delay:0.8s;">
+                <span class="text-4xl mb-2 animate__animated animate__pulse animate__infinite"><i class="fa-solid fa-clipboard-list"></i></span>
+                <h3 class="text-xl font-semibold mb-2 text-pink-300">Index</h3>
+                <p class="text-center mb-4">Quick access to all features and modules of Saarthi.</p>
+                <a href="{% url 'dynamic_render' 'index' %}" class="px-5 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold shadow-lg hover:scale-105 transition">Go to Index</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Font Awesome CDN for icons -->
+{% include "navbar.html" %}
+</body></html>

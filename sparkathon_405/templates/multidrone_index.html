@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Fleet Traffic Management</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Three.js OrbitControls CDN for camera interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js CDN for real-time graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars */
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+        }
+        #app-container {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+            width: 100vw;
+        }
+        #controls-panel {
+            width: 350px; /* Default for larger screens */
+            padding: 1.5rem;
+            background-color: #1e293b; /* Slate 800 */
+            color: #e2e8f0; /* Slate 200 */
+            overflow-y: auto;
+            border-right: 1px solid #334155; /* Slate 700 */
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem; /* Spacing between sections */
+        }
+        #simulation-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .info-box {
+            background-color: #334155; /* Slate 700 */
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .label {
+            font-weight: 600;
+            color: #94a3b8; /* Slate 400 */
+            font-size: 0.875rem;
+        }
+        .value {
+            font-weight: 700;
+            color: #f8fafc; /* White */
+            font-size: 1rem;
+        }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #cbd5e1; /* Slate 300 */
+        }
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 0.375rem;
+            border: 1px solid #475569; /* Slate 600 */
+            background-color: #1e293b; /* Slate 800 */
+            color: #f8fafc; /* White */
+            font-size: 0.9rem;
+        }
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .button {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: none;
+        }
+        .button-primary {
+            background-color: #3b82f6; /* Blue 500 */
+            color: white;
+        }
+        .button-primary:hover {
+            background-color: #2563eb; /* Blue 600 */
+            transform: translateY(-1px);
+        }
+        .button-secondary {
+            background-color: #475569; /* Slate 600 */
+            color: white;
+        }
+        .button-secondary:hover {
+            background-color: #334155; /* Slate 700 */
+            transform: translateY(-1px);
+        }
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #60a5fa; /* Blue 400 */
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 0.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 180px; /* Fixed height for charts */
+            width: 100%;
+            background-color: #0f172a; /* Dark background for charts */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+        }
+
+        /* Overlay for messages */
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none; /* Hidden by default */
+            z-index: 1000;
+            text-align: center;
+        }
+        #message-overlay.show {
+            display: block;
+        }
+
+        /* Drone info overlay */
+        #drone-info-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(30, 41, 59, 0.9); /* Slate 800 with opacity */
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 900;
+            max-height: calc(100vh - 40px); /* Limit height on small screens */
+            overflow-y: auto; /* Enable scrolling for content */
+        }
+        #drone-info-overlay div {
+            font-size: 0.9rem;
+        }
+        #drone-info-overlay .label {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        #drone-info-overlay .value {
+            color: #f8fafc;
+            font-weight: 700;
+        }
+        #drone-info-overlay .close-btn {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            font-size: 1.2rem;
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+        }
+        #drone-info-overlay .close-btn:hover {
+            background-color: #334155;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #app-container {
+                flex-direction: column;
+            }
+            #controls-panel {
+                width: 100%;
+                height: 50vh; /* Take half screen on mobile */
+                border-right: none;
+                border-bottom: 1px solid #334155;
+            }
+            #simulation-container {
+                height: 50vh; /* Take other half screen on mobile */
+            }
+            #drone-info-overlay {
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                border-radius: 0.5rem 0.5rem 0 0;
+                max-height: 40vh; /* Adjust for better visibility */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="controls-panel">
+            <h1 class="text-2xl font-bold mb-6 text-center text-blue-400">Drone Fleet Manager</h1>
+
+            <div class="info-box">
+                <div class="label">Total Drones</div>
+                <div id="total-drones-display" class="value">0</div>
+            </div>
+            <div class="info-box">
+                <div class="label">Drones in Threat</div>
+                <div id="drones-in-threat-display" class="value">0</div>
+            </div>
+            <div class="info-box">
+                <div class="label">Collisions Detected (Cumulative)</div>
+                <div id="collisions-display" class="value">0</div>
+            </div>
+
+            <div class="section-title">Simulation Settings</div>
+            <div class="input-group">
+                <label for="numDrones">Number of Drones:</label>
+                <input type="number" id="numDrones" value="50" min="1" max="200">
+            </div>
+            <div class="input-group">
+                <label for="droneSpeed">Drone Speed (units/frame):</label>
+                <input type="number" id="droneSpeed" value="0.1" step="0.01" min="0.01" max="1.0">
+            </div>
+            <div class="input-group">
+                <label for="collisionDistance">Collision Detection Radius:</label>
+                <input type="number" id="collisionDistance" value="1.5" step="0.1" min="0.5" max="5.0">
+            </div>
+            <div class="input-group">
+                <label for="congestionThreshold">Congestion Threshold:</label>
+                <input type="number" id="congestionThreshold" value="5" min="1" max="20">
+            </div>
+            <div class="input-group">
+                <label for="rerouteStrength">Reroute Strength:</label>
+                <input type="number" id="rerouteStrength" value="0.05" step="0.01" min="0.01" max="0.5">
+            </div>
+            <div class="input-group">
+                <label for="noFlyZonesEnabled">No-Fly Zones:</label>
+                <select id="noFlyZonesEnabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="windEnabled">Wind Simulation:</label>
+                <select id="windEnabled">
+                    <option value="false">Disabled</option>
+                    <option value="true">Enabled</option>
+                </select>
+            </div>
+            <div class="input-group" id="wind-direction-input">
+                <label for="windDirectionX">Wind Direction X:</label>
+                <input type="number" id="windDirectionX" value="0.1" step="0.1">
+                <label for="windDirectionY">Wind Direction Y:</label>
+                <input type="number" id="windDirectionY" value="0" step="0.1">
+                <label for="windDirectionZ">Wind Direction Z:</label>
+                <input type="number" id="windDirectionZ" value="0.1" step="0.1">
+            </div>
+            <div class="input-group">
+                <label for="windStrength">Wind Strength:</label>
+                <input type="number" id="windStrength" value="0.005" step="0.001" min="0">
+            </div>
+            <div class="input-group">
+                <label for="dynamicNoFlyZones">Dynamic No-Fly Zones:</label>
+                <select id="dynamicNoFlyZones">
+                    <option value="false">Disabled</option>
+                    <option value="true">Enabled</option>
+                </select>
+            </div>
+
+
+            <div class="button-group">
+                <button id="start-simulation" class="button button-primary">Start Simulation</button>
+                <button id="stop-simulation" class="button button-secondary">Stop Simulation</button>
+            </div>
+            <button id="reset-simulation" class="button button-secondary w-full">Reset Simulation</button>
+            <button id="reset-camera" class="button button-secondary w-full">Reset Camera View</button>
+
+
+            <div class="section-title">Real-time Metrics</div>
+            <div class="chart-container">
+                <canvas id="collisionsChart"></canvas>
+            </div>
+            <div class="chart-container mt-4">
+                <canvas id="energyChart"></canvas>
+            </div>
+            <div class="chart-container mt-4">
+                <canvas id="densityChart"></canvas>
+            </div>
+
+            <div class="section-title">Futuristic Features</div>
+            <button id="optimize-routes-ai" class="button button-primary w-full">AI-Driven Reroute</button>
+            <button id="trigger-emergency" class="button button-primary w-full mt-3">Trigger Emergency</button>
+            <div class="input-group mt-3">
+                <label for="atcVoiceEnabled">ATC Voice Alerts:</label>
+                <select id="atcVoiceEnabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div id="simulation-container">
+            <canvas id="three-canvas"></canvas>
+            <div id="message-overlay"></div>
+            <div id="drone-info-overlay" class="hidden">
+                <button class="close-btn" onclick="document.getElementById('drone-info-overlay').style.display='none'; selectedDrone = null;">&times;</button>
+                <div class="label">Drone ID: <span id="info-drone-id" class="value"></span></div>
+                <div class="label">Priority: <span id="info-drone-priority" class="value"></span></div>
+                <div class="label">Energy: <span id="info-drone-energy" class="value"></span>%</div>
+                <div class="label">Status: <span id="info-drone-status" class="value"></span></div>
+                <div class="label">Position: <span id="info-drone-position" class="value"></span></div>
+                <div class="label">Target: <span id="info-drone-target" class="value"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for Three.js scene
+        let scene, camera, renderer, controls;
+        let ambientLight, directionalLight;
+        let animationFrameId; // To store the requestAnimationFrame ID for stopping
+        let drones = []; // Array to hold drone objects
+        let noFlyZones = []; // Array to hold no-fly zone meshes
+        let chargingStations = []; // Array to hold charging station meshes
+        let heatmapCells = []; // Array to hold heatmap visualization meshes
+        let simulationRunning = false;
+        let dynamicNoFlyZoneTimer; // Timer for dynamic no-fly zones
+        let selectedDrone = null; // To store the currently selected drone
+
+        // Simulation parameters (configurable via UI)
+        let NUM_DRONES = 50;
+        let DRONE_SPEED = 0.1;
+        let COLLISION_DISTANCE = 1.5; // Distance at which drones detect potential collisions
+        let CONGESTION_THRESHOLD = 5; // Number of drones in a small radius to trigger congestion
+        let REROUTE_STRENGTH = 0.05; // How strongly drones reroute from congestion/collisions
+        let NO_FLY_ZONES_ENABLED = true;
+        let WIND_ENABLED = false;
+        let WIND_DIRECTION = new THREE.Vector3(0.1, 0, 0.1).normalize();
+        let WIND_STRENGTH = 0.005;
+        let DYNAMIC_NO_FLY_ZONES_ENABLED = false;
+        let ATC_VOICE_ENABLED = true;
+
+        // Airspace dimensions
+        const AIRSPACE_SIZE = 50;
+        const AIRSPACE_HEIGHT = 30;
+        const HEATMAP_GRID_SIZE = 5; // For 5x5x5 grid cells
+
+        // Simulation statistics
+        let cumulativeCollisionsDetected = 0; // Cumulative count of very close encounters
+        let dronesInThreat = 0; // Drones currently in potential collision/congestion
+        let activeDrones = 0;
+
+        // Charting variables
+        let collisionsChart, energyChart, densityChart;
+        const chartLabels = [];
+        const dronesInThreatData = [];
+        const avgEnergyData = [];
+        const airspaceDensityData = [];
+        const MAX_CHART_DATA_POINTS = 50; // Limit data points for performance
+
+        // UI elements
+        const numDronesInput = document.getElementById('numDrones');
+        const droneSpeedInput = document.getElementById('droneSpeed');
+        const collisionDistanceInput = document.getElementById('collisionDistance');
+        const congestionThresholdInput = document.getElementById('congestionThreshold');
+        const rerouteStrengthInput = document.getElementById('rerouteStrength');
+        const noFlyZonesEnabledSelect = document.getElementById('noFlyZonesEnabled');
+        const windEnabledSelect = document.getElementById('windEnabled');
+        const windDirectionXInput = document.getElementById('windDirectionX');
+        const windDirectionYInput = document.getElementById('windDirectionY');
+        const windDirectionZInput = document.getElementById('windDirectionZ');
+        const windStrengthInput = document.getElementById('windStrength');
+        const windDirectionInputGroup = document.getElementById('wind-direction-input');
+        const dynamicNoFlyZonesSelect = document.getElementById('dynamicNoFlyZones');
+        const atcVoiceEnabledSelect = document.getElementById('atcVoiceEnabled');
+
+        const startButton = document.getElementById('start-simulation');
+        const stopButton = document.getElementById('stop-simulation');
+        const resetButton = document.getElementById('reset-simulation');
+        const resetCameraButton = document.getElementById('reset-camera');
+        const optimizeRoutesAIButton = document.getElementById('optimize-routes-ai');
+        const triggerEmergencyButton = document.getElementById('trigger-emergency');
+
+        const totalDronesDisplay = document.getElementById('total-drones-display');
+        const dronesInThreatDisplay = document.getElementById('drones-in-threat-display');
+        const collisionsDisplay = document.getElementById('collisions-display');
+        const messageOverlay = document.getElementById('message-overlay');
+        const droneInfoOverlay = document.getElementById('drone-info-overlay');
+
+        // Raycaster for drone selection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Wind visualization arrows
+        const windArrows = [];
+
+        /**
+         * Utility function to show a message overlay.
+         * @param {string} message - The message to display.
+         * @param {number} duration - How long the message should be displayed in milliseconds.
+         */
+        function showMessage(message, duration = 3000) {
+            messageOverlay.textContent = message;
+            messageOverlay.classList.add('show');
+            setTimeout(() => {
+                messageOverlay.classList.remove('show');
+            }, duration);
+        }
+
+        /**
+         * Uses Web Speech API to vocalize messages.
+         * @param {string} message - The message to speak.
+         */
+        function speakMessage(message) {
+            if (ATC_VOICE_ENABLED && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 1.2; // A bit faster
+                utterance.pitch = 1.0; // Normal pitch
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        /**
+         * Toggles the visibility of wind direction inputs based on windEnabledSelect.
+         */
+        function toggleWindDirectionInputs() {
+            windDirectionInputGroup.style.display = windEnabledSelect.value === 'true' ? 'block' : 'none';
+            toggleWindVisualization();
+        }
+        windEnabledSelect.addEventListener('change', toggleWindDirectionInputs);
+        toggleWindDirectionInputs(); // Initial call
+
+        /**
+         * Creates a more realistic drone mesh with a body and spinning propellers.
+         * @returns {THREE.Group} The group containing the drone model.
+         */
+        function createDroneMesh() {
+            const droneGroup = new THREE.Group();
+
+            // Main body (slightly thinner box)
+            const bodyGeometry = new THREE.BoxGeometry(0.8, 0.3, 0.8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x3498db }); // Blue body
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            droneGroup.add(body);
+
+            // Propeller arms (thin boxes)
+            const armGeometry = new THREE.BoxGeometry(1.5, 0.1, 0.1);
+            const armMaterial = new THREE.MeshPhongMaterial({ color: 0x607d8b }); // Grey arms
+
+            const arm1 = new THREE.Mesh(armGeometry, armMaterial);
+            arm1.rotation.y = Math.PI / 4;
+            droneGroup.add(arm1);
+
+            const arm2 = new THREE.Mesh(armGeometry, armMaterial);
+            arm2.rotation.y = -Math.PI / 4;
+            droneGroup.add(arm2);
+
+            // Propellers (simple cylinders)
+            const propellerGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.6, 8);
+            const propellerMaterial = new THREE.MeshPhongMaterial({ color: 0xecf0f1 }); // Light grey propellers
+
+            // Position propellers on arms
+            const propOffsets = [
+                new THREE.Vector3(0.5, 0.2, 0.5),
+                new THREE.Vector3(-0.5, 0.2, -0.5),
+                new THREE.Vector3(0.5, 0.2, -0.5),
+                new THREE.Vector3(-0.5, 0.2, 0.5)
+            ];
+
+            droneGroup.userData.propellers = [];
+            propOffsets.forEach(offset => {
+                const prop = new THREE.Mesh(propellerGeometry, propellerMaterial);
+                prop.rotation.x = Math.PI / 2; // Orient horizontally
+                prop.position.copy(offset);
+                droneGroup.add(prop);
+                droneGroup.userData.propellers.push(prop);
+            });
+
+            return droneGroup;
+        }
+
+        /**
+         * Represents a single drone in the simulation.
+         */
+        class Drone {
+            constructor(id, color, initialPosition, priority = 'routine') {
+                this.id = id;
+                this.priority = priority; // 'emergency' or 'routine'
+                this.originalColor = new THREE.Color(color);
+                this.targetReached = false;
+                this.isColliding = false;
+                this.isCongested = false;
+                this.isCharging = false;
+                this.energy = 100 + Math.random() * 20; // Start with some variability
+                this.maxEnergy = 120;
+                this.chargingRate = 0.2;
+                this.dischargeRate = 0.005; // Energy consumed per frame
+                this.trailPoints = [];
+                this.trailGeometry = new THREE.BufferGeometry();
+                this.trailMaterial = new THREE.LineBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 });
+                this.trailLine = new THREE.Line(this.trailGeometry, this.trailMaterial);
+                scene.add(this.trailLine);
+
+                this.mesh = createDroneMesh(); // Use the more realistic drone model
+                this.mesh.position.copy(initialPosition);
+                scene.add(this.mesh);
+
+                this.waypoints = [];
+                this.currentWaypointIndex = 0;
+                this.generateNewWaypoints(); // Initial set of waypoints
+            }
+
+            /**
+             * Generates a series of random waypoints within the airspace.
+             */
+            generateNewWaypoints() {
+                this.waypoints = [];
+                const numWaypoints = 2 + Math.floor(Math.random() * 3); // 2 to 4 waypoints
+                for (let i = 0; i < numWaypoints; i++) {
+                    const x = (Math.random() - 0.5) * AIRSPACE_SIZE;
+                    const y = Math.random() * AIRSPACE_HEIGHT;
+                    const z = (Math.random() - 0.5) * AIRSPACE_SIZE;
+                    this.waypoints.push(new THREE.Vector3(x, y, z));
+                }
+                this.currentWaypointIndex = 0;
+            }
+
+            /**
+             * Finds the closest charging station.
+             * @returns {THREE.Vector3 | null} Position of the closest charging station, or null if none.
+             */
+            findClosestChargingStation() {
+                let closestStation = null;
+                let minDist = Infinity;
+                for (const station of chargingStations) {
+                    const dist = this.mesh.position.distanceTo(station.position);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestStation = station.position;
+                    }
+                }
+                return closestStation;
+            }
+
+            /**
+             * Updates the drone's state, including movement, collision avoidance, energy, and animations.
+             * @param {Array<Drone>} allDrones - Array of all active drones.
+             */
+            update(allDrones) {
+                if (this.targetReached || this.energy <= 0) {
+                    this.mesh.children[0].material.color.set(0x555555); // Dark grey when disabled/out of energy
+                    this.energy = Math.max(0, this.energy); // Cap energy at 0
+                    this.mesh.userData.propellers.forEach(prop => prop.rotation.y = 0); // Stop propellers
+                    return;
+                }
+
+                // Energy consumption
+                this.energy -= this.dischargeRate;
+
+                // Energy management: seek charging station if low
+                if (this.energy <= 20 && !this.isCharging) {
+                    const chargingStation = this.findClosestChargingStation();
+                    if (chargingStation) {
+                        this.waypoints = [chargingStation]; // Override current path to go to charging station
+                        this.currentWaypointIndex = 0;
+                        if (!this.lowEnergyAlerted) {
+                            speakMessage(`Drone ${this.id} low energy, rerouting to charging station.`);
+                            this.lowEnergyAlerted = true;
+                        }
+                    }
+                } else if (this.isCharging) {
+                    this.energy = Math.min(this.maxEnergy, this.energy + this.chargingRate);
+                    if (this.energy >= this.maxEnergy) {
+                        this.isCharging = false;
+                        this.lowEnergyAlerted = false; // Reset alert
+                        this.generateNewWaypoints(); // Back to routine flight
+                        speakMessage(`Drone ${this.id} fully charged, resuming mission.`);
+                    }
+                }
+
+                let currentPosition = this.mesh.position;
+                let targetWaypoint = this.waypoints[this.currentWaypointIndex];
+
+                // If at charging station and energy is low, stop and charge
+                if (targetWaypoint === this.findClosestChargingStation() && currentPosition.distanceTo(targetWaypoint) < 1.0) {
+                    this.isCharging = true;
+                    this.mesh.position.copy(targetWaypoint); // Snap to station
+                    this.mesh.userData.propellers.forEach(prop => prop.rotation.y += 0.5); // Keep propellers spinning slightly
+                    this.updateVisualState();
+                    return;
+                }
+
+                let desiredVelocity = new THREE.Vector3().subVectors(targetWaypoint, currentPosition);
+                let distanceToWaypoint = desiredVelocity.length();
+
+                // Move to next waypoint if current one is reached
+                if (distanceToWaypoint < DRONE_SPEED * 2) {
+                    this.currentWaypointIndex++;
+                    if (this.currentWaypointIndex >= this.waypoints.length) {
+                        this.generateNewWaypoints();
+                    }
+                    targetWaypoint = this.waypoints[this.currentWaypointIndex];
+                    desiredVelocity.subVectors(targetWaypoint, currentPosition);
+                }
+
+                desiredVelocity.normalize().multiplyScalar(DRONE_SPEED);
+                let avoidanceForce = new THREE.Vector3();
+                let congestionForce = new THREE.Vector3();
+                let noFlyZoneForce = new THREE.Vector3();
+                let windForce = new THREE.Vector3();
+
+                this.isColliding = false;
+                this.isCongested = false;
+
+                // Collision avoidance
+                for (const otherDrone of allDrones) {
+                    if (otherDrone === this || otherDrone.targetReached || otherDrone.isCharging || otherDrone.energy <= 0) continue;
+
+                    const relativePosition = new THREE.Vector3().subVectors(otherDrone.mesh.position, currentPosition);
+                    const distance = relativePosition.length();
+
+                    if (distance < COLLISION_DISTANCE) {
+                        this.isColliding = true;
+                        if (this.priority === 'routine' || otherDrone.priority === 'routine') {
+                            const repulsion = relativePosition.normalize().multiplyScalar(-REROUTE_STRENGTH * (COLLISION_DISTANCE / distance));
+                            avoidanceForce.add(repulsion);
+                        }
+                        if (distance < COLLISION_DISTANCE * 0.7 && !this.collisionAlerted) { // Only alert once per close call
+                            speakMessage(`Collision alert: Drone ${this.id} and Drone ${otherDrone.id}.`);
+                            this.collisionAlerted = true;
+                            // Add a small cooldown before next alert for this drone
+                            setTimeout(() => this.collisionAlerted = false, 5000);
+                        }
+                        cumulativeCollisionsDetected++;
+                    }
+                }
+
+                // Congestion force
+                if (this.priority === 'routine') {
+                    const nearbyDronesCount = allDrones.filter(d => d !== this && !d.targetReached && !d.isCharging && d.energy > 0 && currentPosition.distanceTo(d.mesh.position) < COLLISION_DISTANCE * 3).length;
+                    if (nearbyDronesCount >= CONGESTION_THRESHOLD) {
+                        this.isCongested = true;
+                        congestionForce.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(REROUTE_STRENGTH * 0.5);
+                        if (!this.congestionAlerted) {
+                            speakMessage(`Airspace congestion detected. Drone ${this.id} is in congested zone.`);
+                            this.congestionAlerted = true;
+                            setTimeout(() => this.congestionAlerted = false, 10000);
+                        }
+                    }
+                }
+
+                // No-fly zone avoidance force
+                if (NO_FLY_ZONES_ENABLED) {
+                    for (const zone of noFlyZones) {
+                        const box = new THREE.Box3().setFromObject(zone.mesh);
+                        if (box.containsPoint(currentPosition)) {
+                            const center = box.getCenter(new THREE.Vector3());
+                            const pushDirection = new THREE.Vector3().subVectors(currentPosition, center);
+                            pushDirection.normalize().multiplyScalar(REROUTE_STRENGTH * 2);
+                            noFlyZoneForce.add(pushDirection);
+                            if (!this.nfzAlerted) {
+                                speakMessage(`Warning: Drone ${this.id} approaching no-fly zone.`);
+                                this.nfzAlerted = true;
+                                setTimeout(() => this.nfzAlerted = false, 7000);
+                            }
+                            break;
+                        } else if (box.distanceToPoint(currentPosition) < COLLISION_DISTANCE * 2) {
+                            const closestPoint = box.closestPointToPoint(currentPosition, new THREE.Vector3());
+                            const pushDirection = new THREE.Vector3().subVectors(currentPosition, closestPoint);
+                            pushDirection.normalize().multiplyScalar(REROUTE_STRENGTH);
+                            noFlyZoneForce.add(pushDirection);
+                        }
+                    }
+                }
+
+                // Apply wind force
+                if (WIND_ENABLED) windForce.copy(WIND_DIRECTION).multiplyScalar(WIND_STRENGTH * (this.priority === 'routine' ? 1 : 0.5));
+
+                // Apply all forces to final velocity
+                let finalVelocity = desiredVelocity.clone();
+                finalVelocity.add(avoidanceForce).add(congestionForce).add(noFlyZoneForce).add(windForce);
+                finalVelocity.normalize().multiplyScalar(DRONE_SPEED);
+
+                // Update position and rotation
+                this.mesh.position.add(finalVelocity);
+                this.mesh.lookAt(this.mesh.position.clone().add(finalVelocity));
+
+                // Constrain drone within airspace boundaries
+                this.mesh.position.x = Math.max(-AIRSPACE_SIZE / 2, Math.min(AIRSPACE_SIZE / 2, this.mesh.position.x));
+                this.mesh.position.y = Math.max(0.5, Math.min(AIRSPACE_HEIGHT, this.mesh.position.y));
+                this.mesh.position.z = Math.max(-AIRSPACE_SIZE / 2, Math.min(AIRSPACE_SIZE / 2, this.mesh.position.z));
+
+                // Propeller animation
+                this.mesh.userData.propellers.forEach(prop => prop.rotation.y += 0.5);
+
+                // Update drone color based on status
+                this.updateVisualState(noFlyZoneForce.length() > 0.01);
+
+                // Update trail
+                this.trailPoints.push(this.mesh.position.clone());
+                if (this.trailPoints.length > 50) this.trailPoints.shift();
+                this.trailGeometry.setFromPoints(this.trailPoints);
+                this.trailGeometry.attributes.position.needsUpdate = true;
+            }
+
+            /**
+             * Updates the drone's visual color and emissive properties based on its current status.
+             * @param {boolean} isInNoFlyZone - True if the drone is in or near a no-fly zone.
+             */
+            updateVisualState(isInNoFlyZone = false) {
+                let color = this.originalColor.clone();
+                let emissive = new THREE.Color(0x000000); // Default no emissive
+
+                if (selectedDrone === this) {
+                    color.set(0xffd700); // Gold when selected
+                    emissive.set(0xffd700).multiplyScalar(0.2); // Subtle gold glow
+                } else if (this.isCharging) {
+                    color.set(0x00ffff); // Cyan for charging
+                    emissive.set(0x00ffff).multiplyScalar(0.2); // Cyan glow
+                } else if (isInNoFlyZone) {
+                    color.set(0xff0000); // Red for NFZ
+                    emissive.set(0xff0000).multiplyScalar(0.3); // Red glow
+                } else if (this.isColliding) {
+                    color.set(0xffa500); // Orange for collision threat
+                    emissive.set(0xffa500).multiplyScalar(0.2); // Orange glow
+                } else if (this.isCongested) {
+                    color.set(0xffff00); // Yellow for congestion
+                    emissive.set(0xffff00).multiplyScalar(0.1); // Yellow glow
+                } else if (this.energy <= 20) {
+                    color.set(0xff00ff); // Magenta for low energy
+                    emissive.set(0xff00ff).multiplyScalar(0.2); // Magenta glow
+                }
+
+                // Apply color and emissive to the main body material
+                this.mesh.children[0].material.color.copy(color);
+                this.mesh.children[0].material.emissive.copy(emissive);
+                this.mesh.children[0].material.needsUpdate = true; // Essential for emissive changes
+            }
+
+            /**
+             * Removes the drone mesh and its trail from the scene.
+             */
+            remove() {
+                scene.remove(this.mesh);
+                scene.remove(this.trailLine);
+                this.mesh.traverse(obj => {
+                    if (obj.isMesh) {
+                        obj.geometry.dispose();
+                        obj.material.dispose();
+                    }
+                });
+                this.trailGeometry.dispose();
+                this.trailMaterial.dispose();
+            }
+        }
+
+        /**
+         * Represents a No-Fly Zone in the simulation.
+         */
+        class NoFlyZone {
+            constructor(position, size) {
+                const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+                const material = new THREE.MeshBasicMaterial({ color: 0x800080, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.position.copy(position);
+                scene.add(this.mesh);
+            }
+            remove() {
+                scene.remove(this.mesh);
+                this.mesh.geometry.dispose();
+                this.mesh.material.dispose();
+            }
+        }
+
+        /**
+         * Creates and manages visual indicators for wind direction.
+         */
+        function createWindVisualization() {
+            // Clear existing arrows
+            windArrows.forEach(arrow => scene.remove(arrow));
+            windArrows.length = 0;
+
+            if (WIND_ENABLED) {
+                const arrowCount = 5;
+                const spacing = AIRSPACE_SIZE / (arrowCount + 1);
+                const arrowLength = 5;
+                const arrowColor = 0x88ffaa; // Light green
+
+                for (let x = 0; x < arrowCount; x++) {
+                    for (let z = 0; z < arrowCount; z++) {
+                        // Position arrows slightly above the ground
+                        const origin = new THREE.Vector3(
+                            (x - arrowCount / 2 + 0.5) * spacing,
+                            AIRSPACE_HEIGHT / 4, // Mid-air
+                            (z - arrowCount / 2 + 0.5) * spacing
+                        );
+                        const arrowHelper = new THREE.ArrowHelper(WIND_DIRECTION, origin, arrowLength, arrowColor, 1.5, 1);
+                        scene.add(arrowHelper);
+                        windArrows.push(arrowHelper);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Toggles the visibility of wind visualization arrows.
+         */
+        function toggleWindVisualization() {
+            if (WIND_ENABLED && windArrows.length === 0) {
+                createWindVisualization();
+            } else if (!WIND_ENABLED) {
+                windArrows.forEach(arrow => scene.remove(arrow));
+                windArrows.length = 0;
+            }
+        }
+
+        /**
+         * Initializes the Three.js scene, camera, renderer, and lights.
+         */
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(AIRSPACE_SIZE * 0.8, AIRSPACE_HEIGHT * 1.5, AIRSPACE_SIZE * 0.8);
+            camera.lookAt(new THREE.Vector3(0, AIRSPACE_HEIGHT / 2, 0));
+
+            const canvas = document.getElementById('three-canvas');
+            renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Correctly initialize OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 10;
+            controls.maxDistance = 200;
+            controls.maxPolarAngle = Math.PI / 2;
+
+            ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(AIRSPACE_SIZE, AIRSPACE_HEIGHT * 2, AIRSPACE_SIZE);
+            directionalLight.castShadow = true; // Enable shadows
+            scene.add(directionalLight);
+
+            // Airspace boundaries (wireframe cube)
+            const boxGeometry = new THREE.BoxGeometry(AIRSPACE_SIZE, AIRSPACE_HEIGHT, AIRSPACE_SIZE);
+            const edges = new THREE.EdgesGeometry(boxGeometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x64748b, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            wireframe.position.y = AIRSPACE_HEIGHT / 2;
+            scene.add(wireframe);
+
+            // Ground plane (receive shadows)
+            const planeGeometry = new THREE.PlaneGeometry(AIRSPACE_SIZE, AIRSPACE_SIZE);
+            const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x1e293b, side: THREE.DoubleSide });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = Math.PI / 2;
+            plane.position.y = 0;
+            plane.receiveShadow = true; // Plane receives shadows
+            scene.add(plane);
+
+            createChargingStations();
+            createAirspaceHeatmap();
+            toggleWindVisualization(); // Initialize wind visualization
+
+            window.addEventListener('resize', onWindowResize, false);
+            onWindowResize();
+
+            initCharts();
+
+            canvas.addEventListener('click', onCanvasClick, false);
+        }
+
+        /**
+         * Handles clicks on the canvas to select drones or start the simulation.
+         */
+        function onCanvasClick(event) {
+            if (!simulationRunning) {
+                startSimulation();
+                return;
+            }
+
+            event.preventDefault();
+
+            const canvasBounds = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1;
+            mouse.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(drones.map(d => d.mesh), true);
+
+            if (intersects.length > 0) {
+                const clickedMesh = intersects[0].object.parent; // Get the drone group
+                const drone = drones.find(d => d.mesh === clickedMesh);
+                if (drone) {
+                    if (selectedDrone) {
+                        selectedDrone.updateVisualState(); // Deselect previous drone
+                    }
+                    selectedDrone = drone;
+                    drone.updateVisualState(); // Select new drone (turn gold)
+                    updateDroneInfoOverlay();
+                    droneInfoOverlay.style.display = 'flex';
+                    speakMessage(`Drone ${selectedDrone.id} selected.`);
+                }
+            } else {
+                if (selectedDrone) {
+                    selectedDrone.updateVisualState(); // Deselect if clicked empty space
+                    selectedDrone = null;
+                    droneInfoOverlay.style.display = 'none';
+                }
+            }
+        }
+
+        /**
+         * Updates the drone information overlay with data from the selected drone.
+         */
+        function updateDroneInfoOverlay() {
+            if (selectedDrone) {
+                document.getElementById('info-drone-id').textContent = selectedDrone.id;
+                document.getElementById('info-drone-priority').textContent = selectedDrone.priority.charAt(0).toUpperCase() + selectedDrone.priority.slice(1);
+                document.getElementById('info-drone-energy').textContent = selectedDrone.energy.toFixed(1);
+                let status = 'Flying';
+                if (selectedDrone.isCharging) status = 'Charging';
+                else if (selectedDrone.isColliding) status = 'Collision Threat';
+                else if (selectedDrone.isCongested) status = 'Congested';
+                else if (selectedDrone.energy <= 0) status = 'Disabled (No Energy)';
+                document.getElementById('info-drone-status').textContent = status;
+                document.getElementById('info-drone-position').textContent = `X:${selectedDrone.mesh.position.x.toFixed(1)} Y:${selectedDrone.mesh.position.y.toFixed(1)} Z:${selectedDrone.mesh.position.z.toFixed(1)}`;
+                const currentTarget = selectedDrone.waypoints[selectedDrone.currentWaypointIndex];
+                if (currentTarget) {
+                     document.getElementById('info-drone-target').textContent = `X:${currentTarget.x.toFixed(1)} Y:${currentTarget.y.toFixed(1)} Z:${currentTarget.z.toFixed(1)}`;
+                } else {
+                     document.getElementById('info-drone-target').textContent = 'N/A';
+                }
+            }
+        }
+
+
+        /**
+         * Creates fixed charging station meshes.
+         */
+        function createChargingStations() {
+            const stationPositions = [
+                new THREE.Vector3(AIRSPACE_SIZE * 0.4, 0.5, AIRSPACE_SIZE * 0.4),
+                new THREE.Vector3(-AIRSPACE_SIZE * 0.4, 0.5, -AIRSPACE_SIZE * 0.4),
+                new THREE.Vector3(0, 0.5, AIRSPACE_SIZE * 0.4)
+            ];
+            const stationGeometry = new THREE.CylinderGeometry(1, 1, 0.5, 32);
+            const stationMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.1 }); // Glow
+            stationPositions.forEach(pos => {
+                const stationMesh = new THREE.Mesh(stationGeometry, stationMaterial);
+                stationMesh.position.copy(pos);
+                scene.add(stationMesh);
+                chargingStations.push(stationMesh);
+            });
+        }
+
+        /**
+         * Creates a grid of transparent cubes for the airspace heatmap.
+         */
+        function createAirspaceHeatmap() {
+            const cellSize = AIRSPACE_SIZE / HEATMAP_GRID_SIZE;
+            const heightCellSize = AIRSPACE_HEIGHT / HEATMAP_GRID_SIZE;
+            const geometry = new THREE.BoxGeometry(cellSize * 0.9, heightCellSize * 0.9, cellSize * 0.9);
+            const baseMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.05, color: 0x2c3e50 });
+
+            for (let x = 0; x < HEATMAP_GRID_SIZE; x++) {
+                for (let y = 0; y < HEATMAP_GRID_SIZE; y++) {
+                    for (let z = 0; z < HEATMAP_GRID_SIZE; z++) {
+                        const mesh = new THREE.Mesh(geometry, baseMaterial.clone());
+                        mesh.position.set(
+                            (x - HEATMAP_GRID_SIZE / 2 + 0.5) * cellSize,
+                            (y + 0.5) * heightCellSize,
+                            (z - HEATMAP_GRID_SIZE / 2 + 0.5) * cellSize
+                        );
+                        scene.add(mesh);
+                        heatmapCells.push(mesh);
+                        mesh.userData.gridX = x;
+                        mesh.userData.gridY = y;
+                        mesh.userData.gridZ = z;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Updates the color of heatmap cells based on drone density.
+         */
+        function updateHeatmap() {
+            const cellSizeX = AIRSPACE_SIZE / HEATMAP_GRID_SIZE;
+            const cellSizeY = AIRSPACE_HEIGHT / HEATMAP_GRID_SIZE;
+            const cellSizeZ = AIRSPACE_SIZE / HEATMAP_GRID_SIZE;
+
+            const droneCounts = new Array(HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE).fill(0);
+            let maxCount = 0;
+
+            drones.forEach(drone => {
+                if (drone.targetReached || drone.isCharging || drone.energy <= 0) return;
+
+                const x = Math.floor((drone.mesh.position.x + AIRSPACE_SIZE / 2) / cellSizeX);
+                const y = Math.floor(drone.mesh.position.y / cellSizeY);
+                const z = Math.floor((drone.mesh.position.z + AIRSPACE_SIZE / 2) / cellSizeZ);
+
+                if (x >= 0 && x < HEATMAP_GRID_SIZE &&
+                    y >= 0 && y < HEATMAP_GRID_SIZE &&
+                    z >= 0 && z < HEATMAP_GRID_SIZE) {
+                    const index = x * HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE + y * HEATMAP_GRID_SIZE + z;
+                    droneCounts[index]++;
+                    if (droneCounts[index] > maxCount) {
+                        maxCount = droneCounts[index];
+                    }
+                }
+            });
+
+            const lowColor = new THREE.Color(0x2c3e50);
+            const highColor = new THREE.Color(0xe74c3c);
+
+            heatmapCells.forEach((mesh, i) => {
+                const count = droneCounts[i];
+                if (maxCount > 0) {
+                    const intensity = count / maxCount;
+                    mesh.material.color.lerpColors(lowColor, highColor, intensity);
+                    mesh.material.opacity = 0.05 + intensity * 0.3;
+                } else {
+                    mesh.material.color.copy(lowColor);
+                    mesh.material.opacity = 0.05;
+                }
+            });
+        }
+
+        /**
+         * Initializes Chart.js instances for displaying real-time data.
+         */
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#e2e8f0' }, grid: { color: '#334155' } },
+                    y: { beginAtZero: true, ticks: { color: '#e2e8f0' }, grid: { color: '#334155' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0' } },
+                    title: { display: true, color: '#e2e8f0' }
+                }
+            };
+
+            collisionsChart = new Chart(document.getElementById('collisionsChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: chartLabels, datasets: [{ label: 'Drones in Threat', data: dronesInThreatData, borderColor: 'rgb(255, 165, 0)', backgroundColor: 'rgba(255, 165, 0, 0.2)', fill: true, tension: 0.1 }] },
+                options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Drones in Collision/Congestion Threat' } } }
+            });
+
+            energyChart = new Chart(document.getElementById('energyChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: chartLabels, datasets: [{ label: 'Avg Drone Energy', data: avgEnergyData, borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true, tension: 0.1 }] },
+                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, max: 120 } }, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Average Drone Energy Level' } } }
+            });
+
+            densityChart = new Chart(document.getElementById('densityChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: chartLabels, datasets: [{ label: 'Airspace Congestion Score', data: airspaceDensityData, borderColor: 'rgb(255, 255, 0)', backgroundColor: 'rgba(255, 255, 0, 0.2)', fill: true, tension: 0.1 }] },
+                options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Overall Airspace Density/Congestion' } } }
+            });
+        }
+
+        /**
+         * Adjusts camera and renderer on window resize.
+         */
+        function onWindowResize() {
+            const canvas = document.getElementById('three-canvas');
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
+
+        /**
+         * Clears all existing drones, no-fly zones, and resets chart data.
+         */
+        function clearSceneObjects() {
+            drones.forEach(drone => drone.remove());
+            drones = [];
+
+            noFlyZones.forEach(zone => zone.remove());
+            noFlyZones = [];
+            
+            windArrows.forEach(arrow => scene.remove(arrow));
+            windArrows.length = 0;
+
+            chartLabels.length = 0;
+            dronesInThreatData.length = 0;
+            avgEnergyData.length = 0;
+            airspaceDensityData.length = 0;
+            collisionsChart.update();
+            energyChart.update();
+            densityChart.update();
+
+            // Hide drone info overlay
+            droneInfoOverlay.style.display = 'none';
+            selectedDrone = null;
+        }
+
+        /**
+         * Creates a specified number of drones with random initial positions and targets.
+         */
+        function createDrones() {
+            clearSceneObjects();
+
+            cumulativeCollisionsDetected = 0;
+            dronesInThreat = 0;
+            activeDrones = NUM_DRONES;
+
+            for (let i = 0; i < NUM_DRONES; i++) {
+                const initialPosition = new THREE.Vector3(
+                    (Math.random() - 0.5) * AIRSPACE_SIZE,
+                    Math.random() * AIRSPACE_HEIGHT,
+                    (Math.random() - 0.5) * AIRSPACE_SIZE
+                );
+                const priority = (Math.random() < 0.1) ? 'emergency' : 'routine';
+                const color = (priority === 'emergency') ? 0x00ff00 : 0x007bff;
+
+                const drone = new Drone(i, color, initialPosition, priority);
+                drones.push(drone);
+            }
+
+            if (NO_FLY_ZONES_ENABLED && !DYNAMIC_NO_FLY_ZONES_ENABLED) {
+                const numZones = Math.floor(NUM_DRONES / 10);
+                for (let i = 0; i < numZones; i++) createRandomNoFlyZone();
+            }
+
+            updateUIStats();
+        }
+
+        /**
+         * Creates a single random no-fly zone.
+         */
+        function createRandomNoFlyZone() {
+            const zonePosition = new THREE.Vector3(
+                (Math.random() - 0.5) * (AIRSPACE_SIZE * 0.8),
+                Math.random() * (AIRSPACE_HEIGHT * 0.8),
+                (Math.random() - 0.5) * (AIRSPACE_SIZE * 0.8)
+            );
+            const zoneSize = new THREE.Vector3(
+                5 + Math.random() * 5,
+                5 + Math.random() * 5,
+                5 + Math.random() * 5
+            );
+            const zone = new NoFlyZone(zonePosition, zoneSize);
+            noFlyZones.push(zone);
+        }
+
+        /**
+         * Manages dynamic no-fly zones. Adds/removes them over time.
+         */
+        function manageDynamicNoFlyZones() {
+            clearInterval(dynamicNoFlyZoneTimer); // Clear any existing timer
+            if (DYNAMIC_NO_FLY_ZONES_ENABLED) {
+                dynamicNoFlyZoneTimer = setInterval(() => {
+                    if (noFlyZones.length > 0) {
+                        const zoneToRemove = noFlyZones.shift();
+                        zoneToRemove.remove();
+                    }
+                    if (noFlyZones.length < Math.floor(NUM_DRONES / 5) + 1) createRandomNoFlyZone();
+                }, 10000);
+            } else {
+                noFlyZones.forEach(zone => zone.remove());
+                noFlyZones = [];
+            }
+        }
+
+        /**
+         * Calculates a simple airspace congestion score by counting drones in a grid.
+         * @returns {number} The congestion score.
+         */
+        function calculateAirspaceDensity() {
+            if (drones.length === 0) return 0;
+
+            const cellSizeX = AIRSPACE_SIZE / HEATMAP_GRID_SIZE;
+            const cellSizeY = AIRSPACE_HEIGHT / HEATMAP_GRID_SIZE;
+            const cellSizeZ = AIRSPACE_SIZE / HEATMAP_GRID_SIZE;
+
+            const cellCounts = new Array(HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE).fill(0);
+            let maxCountInAnyCell = 0;
+
+            drones.forEach(drone => {
+                if (drone.targetReached || drone.isCharging || drone.energy <= 0) return;
+
+                const x = Math.floor((drone.mesh.position.x + AIRSPACE_SIZE / 2) / cellSizeX);
+                const y = Math.floor(drone.mesh.position.y / cellSizeY);
+                const z = Math.floor((drone.mesh.position.z + AIRSPACE_SIZE / 2) / cellSizeZ);
+
+                if (x >= 0 && x < HEATMAP_GRID_SIZE &&
+                    y >= 0 && y < HEATMAP_GRID_SIZE &&
+                    z >= 0 && z < HEATMAP_GRID_SIZE) {
+                    const index = x * HEATMAP_GRID_SIZE * HEATMAP_GRID_SIZE + y * HEATMAP_GRID_SIZE + z;
+                    cellCounts[index]++;
+                    if (cellCounts[index] > maxCountInAnyCell) {
+                        maxCount = cellCounts[index];
+                    }
+                }
+            });
+
+            let congestionScore = 0;
+            cellCounts.forEach(count => { if (count > 1) congestionScore += (count - 1); });
+            return congestionScore;
+        }
+
+        /**
+         * The main animation loop for the simulation.
+         */
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+
+            controls.update();
+
+            let currentDronesInThreat = 0;
+            let currentlyActiveDrones = 0;
+            let totalEnergy = 0;
+            let dronesContributingToEnergy = 0;
+
+            for (let i = 0; i < drones.length; i++) {
+                const drone = drones[i];
+                if (!drone.targetReached && drone.energy > 0) {
+                    drone.update(drones);
+                    currentlyActiveDrones++;
+                    totalEnergy += drone.energy;
+                    dronesContributingToEnergy++;
+                }
+                if (drone.isColliding || drone.isCongested || drone.isCharging) {
+                    currentDronesInThreat++;
+                }
+            }
+
+            dronesInThreat = currentDronesInThreat;
+            activeDrones = currentlyActiveDrones;
+
+            updateUIStats();
+            updateHeatmap();
+            if (selectedDrone) updateDroneInfoOverlay(); // Keep info updated
+
+            if (Date.now() % 100 < 10) { // Update charts approximately 10 times per second
+                const currentTime = new Date().toLocaleTimeString();
+                chartLabels.push(currentTime);
+                dronesInThreatData.push(dronesInThreat);
+                avgEnergyData.push(dronesContributingToEnergy > 0 ? (totalEnergy / dronesContributingToEnergy) : 0);
+                airspaceDensityData.push(calculateAirspaceDensity());
+
+                if (chartLabels.length > MAX_CHART_DATA_POINTS) {
+                    chartLabels.shift();
+                    dronesInThreatData.shift();
+                    avgEnergyData.shift();
+                    airspaceDensityData.shift();
+                }
+
+                collisionsChart.update();
+                energyChart.update();
+                densityChart.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * Updates the UI elements with current simulation statistics.
+         */
+        function updateUIStats() {
+            totalDronesDisplay.textContent = NUM_DRONES;
+            dronesInThreatDisplay.textContent = dronesInThreat;
+            collisionsDisplay.textContent = cumulativeCollisionsDetected;
+        }
+
+        /**
+         * Starts the simulation.
+         */
+        function startSimulation() {
+            if (!simulationRunning) {
+                NUM_DRONES = parseInt(numDronesInput.value);
+                DRONE_SPEED = parseFloat(droneSpeedInput.value);
+                COLLISION_DISTANCE = parseFloat(collisionDistanceInput.value);
+                CONGESTION_THRESHOLD = parseInt(congestionThresholdInput.value);
+                REROUTE_STRENGTH = parseFloat(rerouteStrengthInput.value);
+                NO_FLY_ZONES_ENABLED = noFlyZonesEnabledSelect.value === 'true';
+                WIND_ENABLED = windEnabledSelect.value === 'true';
+                WIND_DIRECTION.set(parseFloat(windDirectionXInput.value), parseFloat(windDirectionYInput.value), parseFloat(windDirectionZInput.value)).normalize();
+                WIND_STRENGTH = parseFloat(windStrengthInput.value);
+                DYNAMIC_NO_FLY_ZONES_ENABLED = dynamicNoFlyZonesSelect.value === 'true';
+                ATC_VOICE_ENABLED = atcVoiceEnabledSelect.value === 'true';
+
+                createDrones();
+                manageDynamicNoFlyZones();
+                toggleWindVisualization(); // Ensure wind vis is updated when simulation starts
+                animate();
+                simulationRunning = true;
+                showMessage("Simulation started!", 2000);
+                speakMessage("Air traffic control system online. Simulation initiated.");
+            } else {
+                showMessage("Simulation is already running.", 2000);
+            }
+        }
+
+        /**
+         * Stops the simulation.
+         */
+        function stopSimulation() {
+            if (simulationRunning) {
+                cancelAnimationFrame(animationFrameId);
+                clearInterval(dynamicNoFlyZoneTimer);
+                simulationRunning = false;
+                showMessage("Simulation stopped.", 2000);
+                speakMessage("Simulation halted. All drones holding position.");
+            } else {
+                showMessage("Simulation is not running.", 2000);
+            }
+        }
+
+        /**
+         * Resets the simulation to its initial state.
+         */
+        function resetSimulation() {
+            stopSimulation();
+            clearSceneObjects();
+            cumulativeCollisionsDetected = 0;
+            dronesInThreat = 0;
+            activeDrones = 0;
+            updateUIStats();
+            showMessage("Simulation reset. Click 'Start Simulation' to begin.", 3000);
+            speakMessage("System reset. Awaiting new mission parameters.");
+        }
+
+        /**
+         * Resets the camera to its initial view.
+         */
+        function resetCameraView() {
+            if (controls) {
+                camera.position.set(AIRSPACE_SIZE * 0.8, AIRSPACE_HEIGHT * 1.5, AIRSPACE_SIZE * 0.8);
+                camera.lookAt(new THREE.Vector3(0, AIRSPACE_HEIGHT / 2, 0));
+                controls.update();
+                controls.target.set(0, AIRSPACE_HEIGHT / 2, 0);
+            }
+            showMessage("Camera view reset.", 2000);
+        }
+
+        /**
+         * Simulates an AI-driven global reroute.
+         */
+        function optimizeRoutesAI() {
+            if (!simulationRunning) {
+                showMessage("Start simulation first to optimize routes.", 3000);
+                return;
+            }
+            let reroutedCount = 0;
+            drones.forEach(drone => {
+                if (drone.priority === 'routine' && !drone.isCharging && !drone.targetReached && drone.energy > 0) {
+                    drone.generateNewWaypoints();
+                    reroutedCount++;
+                }
+            });
+            showMessage(`AI-Driven Reroute: ${reroutedCount} routine drone routes optimized.`, 4000);
+            speakMessage(`Automated reroute initiated. ${reroutedCount} drones re-tasked.`);
+        }
+
+        /**
+         * Triggers an emergency for a randomly selected routine drone.
+         */
+        function triggerEmergency() {
+            if (!simulationRunning) {
+                showMessage("Start simulation first to trigger an emergency.", 3000);
+                return;
+            }
+            const routineDrones = drones.filter(d => d.priority === 'routine' && !d.isCharging && !d.targetReached && d.energy > 0);
+            if (routineDrones.length > 0) {
+                const emergencyDrone = routineDrones[Math.floor(Math.random() * routineDrones.length)];
+                emergencyDrone.priority = 'emergency';
+                emergencyDrone.originalColor.set(0xff0000); // Make it red for emergency
+                emergencyDrone.generateNewWaypoints(); // Give it a new urgent target
+                showMessage(`Emergency triggered for Drone ${emergencyDrone.id}! Route prioritized.`, 4000);
+                speakMessage(`Emergency declared! Drone ${emergencyDrone.id} requires immediate priority routing.`);
+            } else {
+                showMessage("No routine drones available to trigger emergency.", 3000);
+            }
+        }
+
+
+        // Event listeners for UI buttons
+        startButton.addEventListener('click', startSimulation);
+        stopButton.addEventListener('click', stopSimulation);
+        resetButton.addEventListener('click', resetSimulation);
+        resetCameraButton.addEventListener('click', resetCameraView);
+        optimizeRoutesAIButton.addEventListener('click', optimizeRoutesAI);
+        triggerEmergencyButton.addEventListener('click', triggerEmergency);
+        dynamicNoFlyZonesSelect.addEventListener('change', manageDynamicNoFlyZones);
+        atcVoiceEnabledSelect.addEventListener('change', () => ATC_VOICE_ENABLED = atcVoiceEnabledSelect.value === 'true');
+
+
+        // Initial setup on window load
+        window.onload = function() {
+            initThreeJS();
+            updateUIStats();
+            showMessage("Welcome! Configure settings and click 'Start Simulation' or click the 3D space to begin.", 5000);
+        };
+    </script>
+{% include "navbar.html" %}
+</body></html>
