@@ -1,0 +1,40 @@
+<!-- filepath: templates/inventory/simulate_order.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simulate Order - {{ product.name }} | Saarthi</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-4">
+    <h1 class="mb-4">Simulate Order for <span class="text-primary">{{ product.name }}</span></h1>
+    <div class="mb-3">
+        <strong>Stock:</strong> {{ product.stock }}<br>
+        <strong>Price:</strong> ₹{{ product.price }}
+    </div>
+    <form method="post" class="card p-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" name="quantity" id="quantity" class="form-control" min="1" max="{{ product.stock }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="order_source" class="form-label">Order Source</label>
+            <select name="order_source" id="order_source" class="form-select" required>
+                <option value="app">App</option>
+                <option value="website">Website</option>
+                <option value="phone">Phone</option>
+                <option value="walkin">Walk-in</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Place Order</button>
+        <a href="{% url 'product_list' product.retailer.id %}" class="btn btn-secondary">Cancel</a>
+    </form>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mt-3">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% include "navbar.html" %}
+</body>
+</html>

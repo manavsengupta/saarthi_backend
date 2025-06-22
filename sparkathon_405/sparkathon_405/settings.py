@@ -31,6 +31,7 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 # Application definition
 
 INSTALLED_APPS = [
+    'inventory',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

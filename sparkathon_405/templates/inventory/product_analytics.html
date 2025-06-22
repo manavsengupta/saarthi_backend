@@ -1,0 +1,200 @@
+<!-- filepath: templates/inventory/product_analytics.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analytics - {{ product.name }} | Saarthi</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #f8fafc; }
+        .card { box-shadow: 0 4px 24px rgba(0,0,0,0.08); border-radius: 1rem; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: scale(1.03); }
+        .badge { font-size: 1rem; }
+        .chart-container { background: #fff; border-radius: 1rem; padding: 1.5rem; margin-bottom: 2rem; }
+    </style>
+</head>
+<body class="container py-4">
+    <h1 class="mb-4 display-5 fw-bold">
+        <span class="text-gradient">📊 Analytics for <span class="text-primary">{{ product.name }}</span></span>
+    </h1>
+    <a href="{% url 'product_list' product.retailer.id %}" class="btn btn-outline-secondary mb-4">&larr; Back to Products</a>
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card text-center p-3">
+                <h6>Current Stock</h6>
+                <div class="display-6 text-success fw-bold">{{ product.stock }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-center p-3">
+                <h6>Total Sold</h6>
+                <div class="display-6 text-info fw-bold">{{ total_sold }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-center p-3">
+                <h6>Suggested Stock (7d)</h6>
+                <div class="display-6 text-warning fw-bold">{{ suggestion|default:"-" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-center p-3">
+                <h6>AI Prediction</h6>
+                <div class="display-6 text-primary fw-bold">
+                    {% if analytics %}{{ analytics.predicted_stock|default:"-" }}{% else %}-{% endif %}
+                </div>
+                {% if analytics %}
+                    {% if analytics.overstocked %}
+                        <span class="badge bg-danger mt-2">Overstocked</span>
+                    {% endif %}
+                    {% if analytics.understocked %}
+                        <span class="badge bg-warning text-dark mt-2">Understocked</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if analytics and analytics.notes %}
+        <div class="alert alert-info mb-4">
+            <strong>AI Notes:</strong> {{ analytics.notes }}
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <h5 class="mb-3">Sales Trend</h5>
+                <canvas id="salesTrendChart" height="180"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <h5 class="mb-3">Order Sources</h5>
+                <canvas id="orderSourceChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <h5 class="mb-3">Stock vs Prediction</h5>
+                <canvas id="stockPredictionChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Order History</h4>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Quantity</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                        <tr>
+                            <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ order.quantity }}</td>
+                            <td>{{ order.get_order_source_display }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="3">No orders yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% include "navbar.html" %}
+
+    <script>
+    // Use data passed from Django
+    const salesLabels = {{ sales_labels|safe }};
+    const salesValues = {{ sales_values|safe }};
+    const sourceLabels = {{ source_labels|safe }};
+    const sourceValues = {{ source_values|safe }};
+
+    // Stock vs Prediction
+    const stockLabels = ["Current Stock", "Suggested", "AI Prediction"];
+    const stockValues = [
+        {{ product.stock }},
+        {{ suggestion|default:"0" }},
+        {% if analytics %}{{ analytics.predicted_stock|default:"0" }}{% else %}0{% endif %}
+    ];
+
+    // Sales Trend Chart
+    new Chart(document.getElementById('salesTrendChart'), {
+        type: 'line',
+        data: {
+            labels: salesLabels.length ? salesLabels : ["No Data"],
+            datasets: [{
+                label: 'Units Sold',
+                data: salesValues.length ? salesValues : [0],
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13,110,253,0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { title: { display: true, text: 'Date' } },
+                y: { title: { display: true, text: 'Units Sold' }, beginAtZero: true }
+            }
+        }
+    });
+
+    // Order Source Pie Chart
+    new Chart(document.getElementById('orderSourceChart'), {
+        type: 'doughnut',
+        data: {
+            labels: sourceLabels.length ? sourceLabels : ["No Data"],
+            datasets: [{
+                data: sourceValues.length ? sourceValues : [0],
+                backgroundColor: [
+                    '#0d6efd', '#6610f2', '#fd7e14', '#20c997', '#ffc107', '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    // Stock vs Prediction Bar Chart
+    new Chart(document.getElementById('stockPredictionChart'), {
+        type: 'bar',
+        data: {
+            labels: stockLabels,
+            datasets: [{
+                label: 'Units',
+                data: stockValues,
+                backgroundColor: ['#198754', '#ffc107', '#0d6efd']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
+</body>
+</html>
