@@ -32,18 +32,16 @@
                 <div class="display-6 text-info fw-bold">{{ total_sold }}</div>
             </div>
         </div>
+   
         <div class="col-md-3">
             <div class="card stat-card text-center p-3">
-                <h6>Suggested Stock (7d)</h6>
-                <div class="display-6 text-warning fw-bold">{{ suggestion|default:"-" }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card text-center p-3">
-                <h6>AI Prediction</h6>
+                <h6>AI Prediction (7d)</h6>
+                
                 <div class="display-6 text-primary fw-bold">
                     {% if analytics %}{{ analytics.predicted_stock|default:"-" }}{% else %}-{% endif %}
                 </div>
+
+
                 {% if analytics %}
                     {% if analytics.overstocked %}
                         <span class="badge bg-danger mt-2">Overstocked</span>
@@ -54,13 +52,47 @@
                 {% endif %}
             </div>
         </div>
+        <div class="col-md-3">
+            <div class="card stat-card text-center p-3">
+        <h6>AI Product Suggestion</h6>
+        {% if ai_suggestion %}
+        {% if "Killer Choice" in ai_suggestion %}
+        <span class="badge bg-danger fs-5 py-2 px-3">🔥 Killer Choice!</span>
+        {% elif "Great Choice" in ai_suggestion %}
+        <span class="badge bg-success fs-5 py-2 px-3">💎 Great Choice!</span>
+        {% elif "Good Choice" in ai_suggestion %}
+        <span class="badge bg-primary fs-5 py-2 px-3">🟢 Good Choice</span>
+        {% elif "Okay Choice" in ai_suggestion %}
+        <span class="badge bg-warning text-dark fs-5 py-2 px-3">🟡 Okay Choice</span>
+        {% elif "Poor Choice" in ai_suggestion %}
+        <span class="badge bg-secondary fs-5 py-2 px-3">😕 Poor Choice</span>
+        {% elif "Drop Product" in ai_suggestion %}
+        <span class="badge bg-dark fs-5 py-2 px-3">🚩 Drop Product</span>
+        {% else %}
+        <span class="badge bg-info fs-5 py-2 px-3">{{ ai_suggestion }}</span>
+        {% endif %}
+        {% else %}
+        <span class="badge bg-light text-dark fs-5 py-2 px-3">No Suggestion</span>
+        {% endif %}
     </div>
+</div>
+</div>
+
     {% if analytics and analytics.notes %}
         <div class="alert alert-info mb-4">
             <strong>AI Notes:</strong> {{ analytics.notes }}
         </div>
     {% endif %}
 
+    
+    {% if ai_suggestion %}
+    <div class="alert alert-warning mb-4">
+        <strong>AI Product Suggestion:</strong> {{ ai_suggestion }}
+    </div>
+    {% endif %}
+    <a href="{% url 'download_product_report' product.id %}?suggestion={{ suggestion }}" class="btn btn-success mb-3">
+        📥 Download Full Analysis (Excel)
+    </a>
     <div class="row g-4">
         <div class="col-lg-6">
             <div class="chart-container">
@@ -196,5 +228,6 @@
         }
     });
 </script>
+
 </body>
 </html>

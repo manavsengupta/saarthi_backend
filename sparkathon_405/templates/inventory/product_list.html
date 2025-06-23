@@ -34,6 +34,8 @@
                 <td>
                     <a href="{% url 'simulate_order' product.id %}" class="btn btn-primary btn-sm">Simulate Order</a>
                     <a href="{% url 'product_analytics' product.id %}" class="btn btn-info btn-sm">Analytics</a>
+                    <a href="{% url 'update_stock' product.id %}" class="btn btn-warning btn-sm">Update Stock</a>
+
                 </td>
             </tr>
         {% empty %}
