@@ -332,3 +332,226 @@ def update_stock(request, product_id):
         messages.success(request, "Stock updated!")
         return redirect(reverse('product_list', args=[product.retailer.id]))
     return render(request, 'inventory/update_stock.html', {'product': product})
+
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
+from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
+from .models import Store, Drone, Delivery
+import random
+
+def get_best_route(lat1, lng1, lat2, lng2):
+    """
+    Simulate an AI-based best route between two points.
+    For demo: returns a list of waypoints (lat, lng) including start, 1-2 random midpoints, and end.
+    """
+    # Add 1-2 random waypoints between start and end to simulate "AI routing"
+    waypoints = [[lat1, lng1]]
+    for _ in range(random.randint(1, 2)):
+        frac = random.uniform(0.3, 0.7)
+        mid_lat = lat1 + frac * (lat2 - lat1) + random.uniform(-0.05, 0.05)
+        mid_lng = lng1 + frac * (lng2 - lng1) + random.uniform(-0.05, 0.05)
+        waypoints.append([mid_lat, mid_lng])
+    waypoints.append([lat2, lng2])
+    return waypoints
+
+def check_traffic_and_reroute(delivery):
+    """
+    Simulate AI-based re-routing due to traffic.
+    For demo: slightly alter the route by adding a new random waypoint.
+    """
+    route = delivery.route or []
+    if len(route) >= 2:
+        # Insert a random detour between first and last
+        lat1, lng1 = route[0]
+        lat2, lng2 = route[-1]
+        detour_lat = (lat1 + lat2) / 2 + random.uniform(-0.1, 0.1)
+        detour_lng = (lng1 + lng2) / 2 + random.uniform(-0.1, 0.1)
+        new_route = [route[0], [detour_lat, detour_lng], route[-1]]
+        return new_route
+    return route
+# 1. Store Management
+def store_list(request):
+    stores = Store.objects.all()
+    return render(request, 'drone/store_list.html', {'stores': stores})
+
+def add_store(request):
+    if request.method == 'POST':
+        name = request.POST['name']
+        address = request.POST.get('address', '')
+        latitude = float(request.POST['latitude'])
+        longitude = float(request.POST['longitude'])
+        Store.objects.create(name=name, address=address, latitude=latitude, longitude=longitude)
+        messages.success(request, "Store added!")
+        return redirect('store_list')
+    return render(request, 'drone/add_store.html')
+
+# 2. Drone Management
+def drone_list(request):
+    drones = Drone.objects.all()
+    return render(request, 'drone/drone_list.html', {'drones': drones})
+
+def add_drone(request):
+    if request.method == 'POST':
+        name = request.POST['name']
+        max_weight_kg = float(request.POST['max_weight_kg'])
+        battery_capacity_mah = int(request.POST['battery_capacity_mah'])
+        current_battery_mah = int(request.POST['current_battery_mah'])
+        speed_kmph = float(request.POST['speed_kmph'])
+        max_flight_time_min = int(request.POST['max_flight_time_min'])
+        Drone.objects.create(
+            name=name,
+            max_weight_kg=max_weight_kg,
+            battery_capacity_mah=battery_capacity_mah,
+            current_battery_mah=current_battery_mah,
+            speed_kmph=speed_kmph,
+            max_flight_time_min=max_flight_time_min
+        )
+        messages.success(request, "Drone added!")
+        return redirect('drone_list')
+    return render(request, 'drone/add_drone.html')
+
+# 3. Delivery Creation & Assignment
+def create_delivery(request):
+    stores = Store.objects.all()
+    if request.method == 'POST':
+        source_store = get_object_or_404(Store, id=request.POST['source_store'])
+        destination_lat = float(request.POST['destination_lat'])
+        destination_lng = float(request.POST['destination_lng'])
+        package_weight_kg = float(request.POST['package_weight_kg'])
+        # Find available drone (simple: first idle drone that can carry the weight)
+        drone = Drone.objects.filter(status='idle', max_weight_kg__gte=package_weight_kg).first()
+        if not drone:
+            messages.error(request, "No available drone for this weight!")
+            return render(request, 'drone/create_delivery.html', {'stores': stores})
+        # AI routing (placeholder)
+        route = get_best_route(source_store.latitude, source_store.longitude, destination_lat, destination_lng)
+        delivery = Delivery.objects.create(
+            drone=drone,
+            source_store=source_store,
+            destination_lat=destination_lat,
+            destination_lng=destination_lng,
+            package_weight_kg=package_weight_kg,
+            status='assigned',
+            route=route,
+        )
+        drone.status = 'assigned'
+        drone.save()
+        messages.success(request, f"Delivery #{delivery.id} created and drone assigned!")
+        return redirect('delivery_list')
+    return render(request, 'drone/create_delivery.html', {'stores': stores})
+
+# 4. Deploy Drone (after checks)
+def deploy_drone(request, delivery_id):
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    drone = delivery.drone
+    if not drone:
+        messages.error(request, "No drone assigned!")
+        return redirect('delivery_detail', delivery_id=delivery.id)
+    if delivery.package_weight_kg > drone.max_weight_kg:
+        messages.error(request, "Package too heavy for this drone!")
+        return redirect('delivery_detail', delivery_id=delivery.id)
+    if drone.current_battery_mah < 0.5 * drone.battery_capacity_mah:
+        messages.error(request, "Drone battery too low!")
+        return redirect('delivery_detail', delivery_id=delivery.id)
+    delivery.status = 'in_progress'
+    delivery.started_at = timezone.now()
+    delivery.save()
+    drone.status = 'in_flight'
+    drone.save()
+    messages.success(request, "Drone deployed!")
+    return redirect('delivery_detail', delivery_id=delivery.id)
+
+# 5. Delivery List Page
+def delivery_list(request):
+    deliveries = Delivery.objects.all().order_by('-id')
+    return render(request, 'drone/delivery_list.html', {'deliveries': deliveries})
+
+# 6. Live Tracking Page
+def live_tracking(request):
+    drones = Drone.objects.filter(status='in_flight')
+    # Show all deliveries that are assigned or in progress
+    deliveries = Delivery.objects.filter(status__in=['assigned', 'in_progress'])
+    stores = Store.objects.all()
+    return render(request, 'drone/live_tracking.html', {
+        'drones': drones,
+        'deliveries': deliveries,
+        'stores': stores, })
+
+
+import random
+import math
+
+def move_towards(lat1, lng1, lat2, lng2, step=0.01):
+    # Move from (lat1, lng1) towards (lat2, lng2) by 'step' fraction
+    if lat1 == lat2 and lng1 == lng2:
+        return lat1, lng1
+    dx = lat2 - lat1
+    dy = lng2 - lng1
+    dist = math.hypot(dx, dy)
+    if dist < step:
+        return lat2, lng2
+    ratio = step / dist
+    return lat1 + dx * ratio, lng1 + dy * ratio
+
+import math    
+def drone_positions_api(request):
+    drones = Drone.objects.filter(status='in_flight')
+    data = []
+    for d in drones:
+        delivery = d.deliveries.filter(status='in_progress').first()
+        if delivery:
+            # Simulate movement: move drone towards destination
+            if d.current_lat is None or d.current_lng is None:
+                d.current_lat = delivery.source_store.latitude
+                d.current_lng = delivery.source_store.longitude
+            # Move towards destination
+            new_lat, new_lng = move_towards(
+                d.current_lat, d.current_lng,
+                delivery.destination_lat, delivery.destination_lng,
+                step=0.05
+            )
+            d.current_lat = new_lat
+            d.current_lng = new_lng
+
+            # Check if drone has reached destination
+            dist = math.hypot(delivery.destination_lat - new_lat, delivery.destination_lng - new_lng)
+            if dist < 0.01:
+                # Mark delivery as delivered and drone as idle
+                delivery.status = 'delivered'
+                delivery.completed_at = timezone.now()
+                delivery.save()
+                d.status = 'idle'
+            d.save(update_fields=['current_lat', 'current_lng', 'status'])
+        data.append({
+            'id': d.id,
+            'lat': d.current_lat,
+            'lng': d.current_lng,
+            'battery': d.current_battery_mah,
+            'altitude': d.altitude_m,
+            'speed': d.speed_kmph,
+            'max_flight_time': d.max_flight_time_min,
+            'delivery_id': delivery.id if delivery else None,
+            'status': d.get_status_display(),
+            'route': delivery.route if delivery and delivery.route else [],
+        })
+    return JsonResponse({'drones': data})
+
+# 8. AI-based Re-routing (triggered by traffic or manual)
+def reroute_drone(request, delivery_id):
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    new_route = check_traffic_and_reroute(delivery)
+    delivery.route = new_route
+    delivery.save()
+    return JsonResponse({'new_route': new_route})
+
+# 9. Delivery Details Page
+def delivery_detail(request, delivery_id):
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    return render(request, 'drone/delivery_detail.html', {'delivery': delivery})
+
+# 10. Drone Details Page (optional)
+def drone_detail(request, drone_id):
+    drone = get_object_or_404(Drone, id=drone_id)
+    return render(request, 'drone/drone_detail.html', {'drone': drone})

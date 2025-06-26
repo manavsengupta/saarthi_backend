@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drones | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+        }
+        .fancy-card {
+            background: rgba(255,255,255,0.97);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.13);
+            padding: 2.5rem 2rem 2rem 2rem;
+            margin: 2rem auto;
+            max-width: 950px;
+            animation: fadeInUp 0.7s;
+        }
+        .fancy-card h1 {
+            font-weight: 700;
+            color: #0d6efd;
+            letter-spacing: 0.03em;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .fancy-card h1 i {
+            font-size: 2.1rem;
+        }
+        .btn-success {
+            background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+            border: none;
+            border-radius: 1.2em;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            padding: 0.6em 1.5em;
+        }
+        .table-responsive {
+            border-radius: 1.2rem;
+            overflow: hidden;
+        }
+        .fancy-table th, .fancy-table td {
+            vertical-align: middle !important;
+            text-align: center;
+        }
+        .fancy-table th {
+            background: #0d6efd;
+            color: #fff;
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+            font-size: 1.08rem;
+            letter-spacing: 0.03em;
+            border-bottom: none;
+        }
+        .fancy-table td {
+            background: #f8fbff;
+            font-size: 1.04rem;
+            border-bottom: 1.5px solid #e3eafc;
+        }
+        .fancy-table tr {
+            transition: box-shadow 0.2s;
+        }
+        .fancy-table tr:hover td {
+            box-shadow: 0 2px 12px rgba(13,110,253,0.08);
+            background: #f0f8ff;
+        }
+        .status-badge {
+            font-size: 0.98em;
+            padding: 0.45em 1.1em;
+            border-radius: 1em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            display: inline-block;
+            min-width: 70px;
+        }
+        .drone-name {
+            font-weight: 600;
+            color: #0d6efd;
+            letter-spacing: 0.01em;
+        }
+        .drone-icon {
+            font-size: 1.2em;
+            margin-right: 0.3em;
+            vertical-align: middle;
+        }
+        .location-coords {
+            font-size: 0.97em;
+            color: #444;
+            background: #f3f7fa;
+            border-radius: 0.7em;
+            padding: 0.2em 0.7em;
+            display: inline-block;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+    </style>
+</head>
+<body>
+    <div class="fancy-card">
+        <h1><i class="fa-solid fa-helicopter"></i> All Drones</h1>
+        <a href="{% url 'add_drone' %}" class="btn btn-success mb-4"><i class="fa-solid fa-plus"></i> Add Drone</a>
+        <div class="table-responsive">
+            <table class="table fancy-table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Max Weight<br>(kg)</th>
+                        <th>Battery<br>(mAh)</th>
+                        <th>Speed<br>(km/h)</th>
+                        <th>Max Flight<br>Time (min)</th>
+                        <th>Current Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for drone in drones %}
+                    <tr>
+                        <td class="drone-name">
+                            <i class="fa-solid fa-robot drone-icon text-info"></i>
+                            {{ drone.name }}
+                        </td>
+                        <td>
+                            <span class="status-badge 
+                                {% if drone.status == 'in_flight' %}bg-primary
+                                {% elif drone.status == 'idle' %}bg-success
+                                {% elif drone.status == 'assigned' %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ drone.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ drone.max_weight_kg }}</td>
+                        <td>
+                            <i class="fa-solid fa-battery-full text-success"></i>
+                            {{ drone.current_battery_mah }}<span class="text-muted">/</span>{{ drone.battery_capacity_mah }}
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-gauge-high text-warning"></i>
+                            {{ drone.speed_kmph }}
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-clock text-info"></i>
+                            {{ drone.max_flight_time_min }}
+                        </td>
+                        <td>
+                            {% if drone.current_lat and drone.current_lng %}
+                                <i class="fa-solid fa-location-dot text-danger"></i>
+                                <span class="location-coords">
+                                    ({{ drone.current_lat|floatformat:4 }}, {{ drone.current_lng|floatformat:4 }})
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No drones found.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% include "navbar.html" %}
+</body>
+</html>

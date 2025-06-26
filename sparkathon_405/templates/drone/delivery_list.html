@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deliveries | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+        }
+        .fancy-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.7s;
+        }
+        .fancy-table th, .fancy-table td {
+            vertical-align: middle !important;
+        }
+        .fancy-table th {
+            background: #0d6efd;
+            color: #fff;
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+            font-size: 1.1rem;
+            letter-spacing: 0.03em;
+        }
+        .fancy-table tr {
+            transition: box-shadow 0.2s;
+        }
+        .fancy-table tr:hover {
+            box-shadow: 0 2px 12px rgba(13,110,253,0.08);
+            background: #f0f8ff;
+        }
+        .badge {
+            font-size: 1em;
+            padding: 0.5em 0.9em;
+            border-radius: 1em;
+            letter-spacing: 0.03em;
+        }
+        .btn {
+            border-radius: 1.2em;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+        .btn-info {
+            background: linear-gradient(90deg, #36d1c4 0%, #5b86e5 100%);
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #36d1c4 0%, #0d6efd 100%);
+            border: none;
+        }
+        .btn-warning {
+            background: linear-gradient(90deg, #f7971e 0%, #ffd200 100%);
+            color: #222;
+            border: none;
+        }
+        .btn-success {
+            background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+            border: none;
+        }
+        .table-responsive {
+            border-radius: 1.2rem;
+            overflow: hidden;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .delivery-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .delivery-header i {
+            font-size: 2.2rem;
+            color: #0d6efd;
+        }
+        .status-badge {
+            font-size: 1em;
+            padding: 0.5em 1em;
+            border-radius: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="fancy-card">
+            <div class="delivery-header mb-4">
+                <i class="fa-solid fa-truck-fast"></i>
+                <h1 class="mb-0">All Deliveries</h1>
+                <a href="{% url 'create_delivery' %}" class="btn btn-success ms-auto"><i class="fa-solid fa-plus"></i> Create Delivery</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table fancy-table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Source Store</th>
+                            <th>Destination</th>
+                            <th>Weight (kg)</th>
+                            <th>Drone</th>
+                            <th>Started</th>
+                            <th>Completed</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for delivery in deliveries %}
+                        <tr>
+                            <td><span class="fw-bold text-primary">#{{ delivery.id }}</span></td>
+                            <td>
+                                <i class="fa-solid fa-store text-success"></i>
+                                {{ delivery.source_store.name }}
+                            </td>
+                            <td>
+                                <i class="fa-solid fa-location-dot text-warning"></i>
+                                ({{ delivery.destination_lat }}, {{ delivery.destination_lng }})
+                            </td>
+                            <td>{{ delivery.package_weight_kg }}</td>
+                            <td>
+                                {% if delivery.drone %}
+                                    <i class="fa-solid fa-helicopter text-info"></i>
+                                    {{ delivery.drone.name }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if delivery.started_at %}
+                                    <i class="fa-regular fa-clock text-primary"></i>
+                                    {{ delivery.started_at|date:"Y-m-d H:i" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if delivery.completed_at %}
+                                    <i class="fa-regular fa-circle-check text-success"></i>
+                                    {{ delivery.completed_at|date:"Y-m-d H:i" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge 
+                                    {% if delivery.status == 'in_progress' %}bg-primary
+                                    {% elif delivery.status == 'assigned' %}bg-warning text-dark
+                                    {% elif delivery.status == 'delivered' %}bg-success
+                                    {% elif delivery.status == 'failed' or delivery.status == 'cancelled' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ delivery.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'delivery_detail' delivery.id %}" class="btn btn-info btn-sm mb-1"><i class="fa-solid fa-circle-info"></i> Details</a>
+                                {% if delivery.status == 'assigned' %}
+                                    <a href="{% url 'deploy_drone' delivery.id %}" class="btn btn-primary btn-sm mb-1"><i class="fa-solid fa-paper-plane"></i> Deploy</a>
+                                {% endif %}
+                                {% if delivery.status == 'in_progress' %}
+                                    <a href="{% url 'reroute_drone' delivery.id %}" class="btn btn-warning btn-sm mb-1"><i class="fa-solid fa-route"></i> Re-route</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">No deliveries found.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% include "navbar.html" %}]
+    </body>
+</html>

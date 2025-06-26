@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Store | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+        }
+        .fancy-card {
+            background: rgba(255,255,255,0.97);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.13);
+            padding: 2.5rem 2rem 2rem 2rem;
+            margin: 2rem auto;
+            max-width: 500px;
+            animation: fadeInUp 0.7s;
+        }
+        .fancy-card h1 {
+            font-weight: 700;
+            color: #0d6efd;
+            letter-spacing: 0.03em;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .fancy-card h1 i {
+            font-size: 2.1rem;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        .form-control, textarea {
+            border-radius: 1em;
+            border: 1.5px solid #b6d0f7;
+            font-size: 1.08em;
+            background: #f7fbff;
+        }
+        .form-control:focus, textarea:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.15rem #0d6efd33;
+        }
+        .btn-success {
+            background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+            border: none;
+            border-radius: 1.2em;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            padding: 0.6em 1.5em;
+        }
+        .btn-secondary {
+            border-radius: 1.2em;
+            font-weight: 600;
+            margin-left: 0.7em;
+            letter-spacing: 0.03em;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+    </style>
+</head>
+<body>
+    <div class="fancy-card">
+        <h1><i class="fa-solid fa-store"></i> Add Store</h1>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="name" class="form-label"><i class="fa-solid fa-store text-success"></i> Store Name</label>
+                <input type="text" name="name" id="name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="address" class="form-label"><i class="fa-solid fa-location-dot text-warning"></i> Address</label>
+                <textarea name="address" id="address" class="form-control"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="latitude" class="form-label"><i class="fa-solid fa-globe-asia text-info"></i> Latitude</label>
+                <input type="number" step="any" name="latitude" id="latitude" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="longitude" class="form-label"><i class="fa-solid fa-globe-asia text-info"></i> Longitude</label>
+                <input type="number" step="any" name="longitude" id="longitude" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success"><i class="fa-solid fa-plus"></i> Add Store</button>
+            <a href="{% url 'store_list' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</body>

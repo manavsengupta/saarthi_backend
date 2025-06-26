@@ -1,0 +1,40 @@
+<!-- filepath: templates/drone/add_drone.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Drone | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-4">
+    <h1 class="mb-4">Add Drone</h1>
+    <form method="post" class="card p-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="name" class="form-label">Drone Name</label>
+            <input type="text" name="name" id="name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="max_weight_kg" class="form-label">Max Weight (kg)</label>
+            <input type="number" step="any" name="max_weight_kg" id="max_weight_kg" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="battery_capacity_mah" class="form-label">Battery Capacity (mAh)</label>
+            <input type="number" name="battery_capacity_mah" id="battery_capacity_mah" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="current_battery_mah" class="form-label">Current Battery (mAh)</label>
+            <input type="number" name="current_battery_mah" id="current_battery_mah" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="speed_kmph" class="form-label">Speed (km/h)</label>
+            <input type="number" step="any" name="speed_kmph" id="speed_kmph" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label for="max_flight_time_min" class="form-label">Max Flight Time (min)</label>
+            <input type="number" name="max_flight_time_min" id="max_flight_time_min" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-success">Add Drone</button>
+        <a href="{% url 'drone_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</body>
+</html>

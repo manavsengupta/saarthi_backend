@@ -1,0 +1,50 @@
+<!-- filepath: templates/drone/drone_detail.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drone {{ drone.name }} | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-4">
+    <h1 class="mb-4">Drone: {{ drone.name }}</h1>
+    <div class="card p-4 mb-4">
+        <p><strong>Status:</strong> {{ drone.get_status_display }}</p>
+        <p><strong>Max Weight:</strong> {{ drone.max_weight_kg }} kg</p>
+        <p><strong>Battery:</strong> {{ drone.current_battery_mah }}/{{ drone.battery_capacity_mah }} mAh</p>
+        <p><strong>Speed:</strong> {{ drone.speed_kmph }} km/h</p>
+        <p><strong>Max Flight Time:</strong> {{ drone.max_flight_time_min }} min</p>
+        <p><strong>Current Location:</strong> ({{ drone.current_lat }}, {{ drone.current_lng }})</p>
+        <p><strong>Last Update:</strong> {{ drone.last_update|date:"Y-m-d H:i" }}</p>
+    </div>
+    <h4>Recent Telemetry</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Lat</th>
+                <th>Lng</th>
+                <th>Altitude (m)</th>
+                <th>Battery (mAh)</th>
+                <th>Speed (km/h)</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in drone.telemetry.all|slice:":10" %}
+            <tr>
+                <td>{{ t.timestamp|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ t.latitude }}</td>
+                <td>{{ t.longitude }}</td>
+                <td>{{ t.altitude_m }}</td>
+                <td>{{ t.battery_mah }}</td>
+                <td>{{ t.speed_kmph }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6">No telemetry data.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="{% url 'drone_list' %}" class="btn btn-secondary">Back to Drones</a>
+</body>
+</html>

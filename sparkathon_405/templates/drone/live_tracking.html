@@ -1,0 +1,169 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Drone Tracking | Drone Delivery</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+        }
+        #map { 
+            height: 70vh; 
+            min-height: 400px; 
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            margin-bottom: 2rem;
+            border: 3px solid #0d6efd33;
+        }
+        .legend-box {
+            background: rgba(255,255,255,0.95);
+            border-radius: 1rem;
+            box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.10);
+            padding: 1.2rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            animation: fadeInUp 0.7s;
+        }
+        .legend-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        .live-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .live-header i {
+            font-size: 2.2rem;
+            color: #0d6efd;
+        }
+        .tracking-card {
+            background: rgba(255,255,255,0.97);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.10);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.7s;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 1rem !important;
+        }
+        .leaflet-popup-content {
+            font-size: 1.05rem;
+        }
+    </style>
+</head>
+<body class="container py-4">
+    <div class="tracking-card">
+        <div class="live-header">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <h1 class="mb-0">Live Drone Tracking</h1>
+        </div>
+        <div id="map"></div>
+        <div class="legend-box">
+            <span><i class="fa-solid fa-store legend-icon text-success"></i> <span class="badge bg-success">Store</span></span>
+            <span><i class="fa-solid fa-location-dot legend-icon text-warning"></i> <span class="badge bg-warning text-dark">Destination</span></span>
+            <span><i class="fa-solid fa-helicopter legend-icon text-primary"></i> <span class="badge bg-primary">Drone</span></span>
+            <span><i class="fa-solid fa-route legend-icon text-info"></i> <span class="badge bg-info text-dark">Route</span></span>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Center on India
+        var map = L.map('map').setView([22.9734, 78.6569], 5);
+
+        // OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+        }).addTo(map);
+
+        // Custom icons
+        var storeIcon = L.icon({
+            iconUrl: '{% static 'store.png' %}',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+        var destIcon = L.icon({
+            iconUrl: '{% static 'yellow.png' %}', // yellow pin
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+        var droneIcon = L.icon({
+            iconUrl: "{% static 'drone.png' %}",
+            iconSize: [45, 45],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -16]
+        });
+
+        // Add stores (green)
+        {% for store in stores %}
+            L.marker([{{ store.latitude }}, {{ store.longitude }}], {icon: storeIcon})
+                .addTo(map)
+                .bindPopup("<b>Store:</b> {{ store.name }}");
+        {% endfor %}
+
+        // Add destinations (yellow)
+        {% for delivery in deliveries %}
+            L.marker([{{ delivery.destination_lat }}, {{ delivery.destination_lng }}], {icon: destIcon})
+                .addTo(map)
+                .bindPopup("<b>Delivery #{{ delivery.id }}</b><br>Status: {{ delivery.get_status_display }}");
+        {% endfor %}
+
+        // Drones and routes
+        var droneMarkers = {};
+        var droneRoutes = {};
+
+        function updateDrones() {
+            fetch("{% url 'drone_positions_api' %}")
+                .then(response => response.json())
+                .then(data => {
+                    data.drones.forEach(function(drone) {
+                        var key = drone.id;
+                        var latlng = [drone.lat, drone.lng];
+                        var popup = `<b><i class='fa-solid fa-helicopter text-primary'></i> Drone #${drone.id}: ${drone.status}</b><br>
+                            <i class='fa-solid fa-battery-full text-success'></i> Battery: ${drone.battery} mAh<br>
+                            <i class='fa-solid fa-arrow-up text-info'></i> Altitude: ${drone.altitude} m<br>
+                            <i class='fa-solid fa-gauge-high text-warning'></i> Speed: ${drone.speed} km/h`;
+
+                        // Update or create marker
+                        if (droneMarkers[key]) {
+                            droneMarkers[key].setLatLng(latlng).setPopupContent(popup);
+                        } else {
+                            droneMarkers[key] = L.marker(latlng, {icon: droneIcon})
+                                .addTo(map)
+                                .bindPopup(popup);
+                        }
+
+                        // Draw or update route polyline
+                        if (droneRoutes[key]) {
+                            map.removeLayer(droneRoutes[key]);
+                        }
+                        if (drone.route && drone.route.length > 1) {
+                            droneRoutes[key] = L.polyline(drone.route, {color: 'deepskyblue', weight: 4, dashArray: '8, 8'}).addTo(map);
+                        }
+                    });
+                });
+        }
+        updateDrones();
+        setInterval(updateDrones, 3000); // Update every 3 seconds
+    </script>
+
+
+    {% include "navbar.html" %}
+</body>
+</html>

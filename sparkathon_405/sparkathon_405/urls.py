@@ -21,6 +21,7 @@ from django.urls import include
 
 urlpatterns = [
     path('',views.index, name='index'),
+    path('drone/', include('inventory.urls')),
     path('inventory/', include('inventory.urls')),
     path('<str:page>/', views.dynamic_render, name='dynamic_render'),
 
