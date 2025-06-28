@@ -80,6 +80,9 @@
             <span><i class="fa-solid fa-route legend-icon text-info"></i> <span class="badge bg-info text-dark">Route</span></span>
         </div>
     </div>
+
+    <div id="alert-area" style="position:fixed;top:30px;right:30px;z-index:9999;"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Center on India
@@ -92,13 +95,13 @@
 
         // Custom icons
         var storeIcon = L.icon({
-            iconUrl: '{% static 'store.png' %}',
+            iconUrl: '{% static "store.png" %}',
             iconSize: [32, 32],
             iconAnchor: [16, 32],
             popupAnchor: [0, -32]
         });
         var destIcon = L.icon({
-            iconUrl: '{% static 'yellow.png' %}', // yellow pin
+            iconUrl: '{% static "yellow.png" %}', // yellow pin
             iconSize: [32, 32],
             iconAnchor: [16, 32],
             popupAnchor: [0, -32]
@@ -128,10 +131,19 @@
         var droneMarkers = {};
         var droneRoutes = {};
 
+        function showAlert(msg) {
+            let alertDiv = document.createElement('div');
+            alertDiv.className = "alert alert-danger shadow";
+            alertDiv.innerHTML = "<i class='fa-solid fa-triangle-exclamation'></i> " + msg;
+            document.getElementById('alert-area').appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
         function updateDrones() {
             fetch("{% url 'drone_positions_api' %}")
                 .then(response => response.json())
                 .then(data => {
+                    // Update drone markers and routes
                     data.drones.forEach(function(drone) {
                         var key = drone.id;
                         var latlng = [drone.lat, drone.lng];
@@ -157,13 +169,47 @@
                             droneRoutes[key] = L.polyline(drone.route, {color: 'deepskyblue', weight: 4, dashArray: '8, 8'}).addTo(map);
                         }
                     });
+
+                    // Show alerts
+                    if (data.alerts) {
+                        data.alerts.forEach(alert => showAlert(alert.message));
+                    }
                 });
         }
         updateDrones();
         setInterval(updateDrones, 3000); // Update every 3 seconds
     </script>
 
-
     {% include "navbar.html" %}
 </body>
 </html>
+
+
+{% comment %} 
+
+
+
+# In Django shell
+from inventory.models import Store, Drone, Delivery
+
+# Create stores
+a = Store.objects.create(name="Store A", latitude=28.6100, longitude=77.2300)
+b = Store.objects.create(name="Store B", latitude=28.6200, longitude=78.2400)
+
+# Create drones
+d1 = Drone.objects.create(name="Drone 1", status='idle', current_lat=a.latitude, current_lng=a.longitude, max_weight_kg=5, battery_capacity_mah=4000, current_battery_mah=4000, speed_kmph=10, max_flight_time_min=30)
+d2 = Drone.objects.create(name="Drone 2", status='idle', current_lat=b.latitude, current_lng=b.longitude, max_weight_kg=5, battery_capacity_mah=4000, current_battery_mah=4000, speed_kmph=10, max_flight_time_min=30)
+
+# Create deliveries
+Delivery.objects.create(
+    drone=d1, source_store=a, destination_lat=b.latitude, destination_lng=b.longitude,
+    package_weight_kg=1, status='assigned', route=[[a.latitude, a.longitude], [b.latitude, b.longitude]]
+)
+Delivery.objects.create(
+    drone=d2, source_store=b, destination_lat=a.latitude, destination_lng=a.longitude,
+    package_weight_kg=1, status='assigned', route=[[b.latitude, b.longitude], [a.latitude, a.longitude]]
+) 
+    
+
+
+{% endcomment %}

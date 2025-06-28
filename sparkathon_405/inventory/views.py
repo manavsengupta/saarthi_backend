@@ -482,6 +482,24 @@ def live_tracking(request):
 
 import random
 import math
+def will_collide(drone1, route1, drone2, route2, step=0.05, threshold=0.02):
+    """
+    Simulate both drones moving along their routes step by step.
+    If at any step, their positions are closer than 'threshold', return True.
+    """
+    if not route1 or not route2:
+        return False
+    # Simulate up to the length of the longer route
+    max_steps = max(len(route1), len(route2))
+    for i in range(max_steps):
+        idx1 = min(i, len(route1)-1)
+        idx2 = min(i, len(route2)-1)
+        lat1, lng1 = route1[idx1]
+        lat2, lng2 = route2[idx2]
+        dist = math.hypot(lat1 - lat2, lng1 - lng2)
+        if dist < threshold:
+            return True
+    return False
 
 def move_towards(lat1, lng1, lat2, lng2, step=0.01):
     # Move from (lat1, lng1) towards (lat2, lng2) by 'step' fraction
@@ -496,9 +514,32 @@ def move_towards(lat1, lng1, lat2, lng2, step=0.01):
     return lat1 + dx * ratio, lng1 + dy * ratio
 
 import math    
+import math
+from django.http import JsonResponse
+
 def drone_positions_api(request):
-    drones = Drone.objects.filter(status='in_flight')
+    drones = list(Drone.objects.filter(status='in_flight'))
     data = []
+    alerts = []
+
+    # --- Collision detection: check all pairs ---
+    for i, d1 in enumerate(drones):
+        delivery1 = d1.deliveries.filter(status='in_progress').first()
+        if not delivery1 or not d1.current_lat or not d1.current_lng:
+            continue
+        for j, d2 in enumerate(drones):
+            if i >= j:
+                continue  # avoid duplicate pairs and self
+            delivery2 = d2.deliveries.filter(status='in_progress').first()
+            if not delivery2 or not d2.current_lat or not d2.current_lng:
+                continue
+            dist = math.hypot(d1.current_lat - d2.current_lat, d1.current_lng - d2.current_lng)
+            if dist < 0.03:  # proximity threshold
+                alerts.append({
+                    'drones': [d1.id, d2.id],
+                    'message': f"⚠️ Warning: Drone #{d1.id} and Drone #{d2.id} are in close proximity! Consider rerouting."
+                })
+
     for d in drones:
         delivery = d.deliveries.filter(status='in_progress').first()
         if delivery:
@@ -506,37 +547,65 @@ def drone_positions_api(request):
             if d.current_lat is None or d.current_lng is None:
                 d.current_lat = delivery.source_store.latitude
                 d.current_lng = delivery.source_store.longitude
-            # Move towards destination
-            new_lat, new_lng = move_towards(
+
+            # Predict next step
+            next_lat, next_lng = move_towards(
                 d.current_lat, d.current_lng,
                 delivery.destination_lat, delivery.destination_lng,
                 step=0.05
             )
-            d.current_lat = new_lat
-            d.current_lng = new_lng
+
+            # Check for collision with other drones (future step)
+            for other in drones:
+                if other.id == d.id:
+                    continue
+                other_delivery = other.deliveries.filter(status='in_progress').first()
+                if other_delivery:
+                    other_next_lat, other_next_lng = move_towards(
+                        other.current_lat or other_delivery.source_store.latitude,
+                        other.current_lng or other_delivery.source_store.longitude,
+                        other_delivery.destination_lat, other_delivery.destination_lng,
+                        step=0.05
+                    )
+                    dist = math.hypot(next_lat - other_next_lat, next_lng - other_next_lng)
+                    if dist < 0.02:
+                        alerts.append({
+                            'drones': [d.id, other.id],
+                            'message': f"🚨 Collision detected! Drone #{d.id} is being rerouted."
+                        })
+                        new_route = check_traffic_and_reroute(delivery)
+                        delivery.route = new_route
+                        delivery.save()
+                        if new_route and len(new_route) > 1:
+                            next_lat, next_lng = new_route[1]
+                        break
+
+            # Move towards destination (after reroute if needed)
+            d.current_lat = next_lat
+            d.current_lng = next_lng
+            d.save(update_fields=['current_lat', 'current_lng'])
 
             # Check if drone has reached destination
-            dist = math.hypot(delivery.destination_lat - new_lat, delivery.destination_lng - new_lng)
-            if dist < 0.01:
-                # Mark delivery as delivered and drone as idle
-                delivery.status = 'delivered'
-                delivery.completed_at = timezone.now()
-                delivery.save()
+            dist_to_dest = math.hypot(delivery.destination_lat - next_lat, delivery.destination_lng - next_lng)
+            if dist_to_dest < 0.01:
                 d.status = 'idle'
-            d.save(update_fields=['current_lat', 'current_lng', 'status'])
+                d.save(update_fields=['status'])
+                delivery.status = 'delivered'
+                delivery.save(update_fields=['status'])
+
         data.append({
             'id': d.id,
             'lat': d.current_lat,
             'lng': d.current_lng,
             'battery': d.current_battery_mah,
-            'altitude': d.altitude_m,
+            'altitude': getattr(d, 'altitude_m', 0),
             'speed': d.speed_kmph,
             'max_flight_time': d.max_flight_time_min,
             'delivery_id': delivery.id if delivery else None,
             'status': d.get_status_display(),
             'route': delivery.route if delivery and delivery.route else [],
         })
-    return JsonResponse({'drones': data})
+    return JsonResponse({'drones': data, 'alerts': alerts})
 
 # 8. AI-based Re-routing (triggered by traffic or manual)
 def reroute_drone(request, delivery_id):
