@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SmartDrop Points</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body>
+<div class="container py-4">
+    <h2><i class="fa-solid fa-charging-station text-secondary"></i> SmartDrop Points</h2>
+    <a href="{% url 'add_smartdrop' %}" class="btn btn-success mb-3">
+        <i class="fa-solid fa-plus"></i> Add SmartDrop Point
+    </a>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Added By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for point in points %}
+            <tr>
+                <td>{{ point.name }}</td>
+                <td>{{ point.latitude }}</td>
+                <td>{{ point.longitude }}</td>
+                <td>{{ point.added_by.name }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No SmartDrop Points yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include "navbar.html" %}
+</body>
+</html>

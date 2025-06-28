@@ -78,6 +78,7 @@
             <span><i class="fa-solid fa-location-dot legend-icon text-warning"></i> <span class="badge bg-warning text-dark">Destination</span></span>
             <span><i class="fa-solid fa-helicopter legend-icon text-primary"></i> <span class="badge bg-primary">Drone</span></span>
             <span><i class="fa-solid fa-route legend-icon text-info"></i> <span class="badge bg-info text-dark">Route</span></span>
+       <span><i class="fa-solid fa-charging-station legend-icon text-secondary"></i> <span class="badge bg-secondary">SmartDrop</span></span>
         </div>
     </div>
 
@@ -113,6 +114,13 @@
             popupAnchor: [0, -16]
         });
 
+        var smartdropIcon = L.icon({
+    iconUrl: '{% static "smartdrop.png" %}', // Add this image to your static folder!
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+});
+
         // Add stores (green)
         {% for store in stores %}
             L.marker([{{ store.latitude }}, {{ store.longitude }}], {icon: storeIcon})
@@ -126,6 +134,12 @@
                 .addTo(map)
                 .bindPopup("<b>Delivery #{{ delivery.id }}</b><br>Status: {{ delivery.get_status_display }}");
         {% endfor %}
+
+        {% for sdp in smartdrops %}
+    L.marker([{{ sdp.latitude }}, {{ sdp.longitude }}], {icon: smartdropIcon})
+        .addTo(map)
+        .bindPopup("<b>SmartDrop Point:</b> {{ sdp.name }}");
+{% endfor %}
 
         // Drones and routes
         var droneMarkers = {};

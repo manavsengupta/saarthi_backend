@@ -25,5 +25,6 @@ urlpatterns = [
     path('product/<int:product_id>/analytics/', views.product_analytics, name='product_analytics'),
     path('product/<int:product_id>/download_report/', views.download_product_report, name='download_product_report'),
     path('product/<int:product_id>/update_stock/', views.update_stock, name='update_stock'),
-
+    path('smartdrop/', views.smartdrop_list, name='smartdrop_list'),
+    path('smartdrop/add/', views.add_smartdrop, name='add_smartdrop'),
 ]

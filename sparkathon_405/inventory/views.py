@@ -6,9 +6,17 @@ from django.db.models import Sum, F
 from django.contrib import messages
 import pandas as pd
 import numpy as np
-
+from .models import SmartDropPoint
 from sklearn.linear_model import LinearRegression
 from .models import Product, Order, ProductAnalytics
+
+
+
+
+
+
+
+
 def analyze_product(product):
     # Get all orders for this product
     orders = Order.objects.filter(product=product).order_by('ordered_at')
@@ -452,7 +460,7 @@ def deploy_drone(request, delivery_id):
     if delivery.package_weight_kg > drone.max_weight_kg:
         messages.error(request, "Package too heavy for this drone!")
         return redirect('delivery_detail', delivery_id=delivery.id)
-    if drone.current_battery_mah < 0.5 * drone.battery_capacity_mah:
+    if drone.current_battery_mah < 0.1 * drone.battery_capacity_mah:
         messages.error(request, "Drone battery too low!")
         return redirect('delivery_detail', delivery_id=delivery.id)
     delivery.status = 'in_progress'
@@ -467,17 +475,55 @@ def deploy_drone(request, delivery_id):
 def delivery_list(request):
     deliveries = Delivery.objects.all().order_by('-id')
     return render(request, 'drone/delivery_list.html', {'deliveries': deliveries})
+import heapq
 
+def find_smartdrop_route(source, destination, smartdrops, max_range_km):
+    """
+    Returns a list of waypoints: [source, smartdrop1, ..., destination]
+    Each hop is within max_range_km.
+    """
+    # Build all points list
+    points = [(source[0], source[1], 'source')] + \
+             [(sdp.latitude, sdp.longitude, sdp.name) for sdp in smartdrops] + \
+             [(destination[0], destination[1], 'destination')]
+    n = len(points)
+    # Build adjacency list for hops within range
+    adj = {i: [] for i in range(n)}
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            dist = math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1])
+            if dist <= max_range_km:
+                adj[i].append(j)
+    # Dijkstra
+    heap = [(0, 0, [0])]  # (cost, idx, path)
+    visited = set()
+    while heap:
+        cost, idx, path = heapq.heappop(heap)
+        if idx == n - 1:
+            # Found path to destination
+            return [ (points[i][0], points[i][1]) for i in path ]
+        if idx in visited:
+            continue
+        visited.add(idx)
+        for nei in adj[idx]:
+            if nei not in path:
+                heapq.heappush(heap, (cost + 1, nei, path + [nei]))
+    return None  # No route found
 # 6. Live Tracking Page
 def live_tracking(request):
     drones = Drone.objects.filter(status='in_flight')
     # Show all deliveries that are assigned or in progress
     deliveries = Delivery.objects.filter(status__in=['assigned', 'in_progress'])
     stores = Store.objects.all()
+    smartdrops = SmartDropPoint.objects.all()  # <-- Add this line
+
     return render(request, 'drone/live_tracking.html', {
         'drones': drones,
         'deliveries': deliveries,
-        'stores': stores, })
+        'stores': stores,
+         'smartdrops': smartdrops,  }) 
 
 
 import random
@@ -517,81 +563,172 @@ import math
 import math
 from django.http import JsonResponse
 
+
+import math
+import random
+from django.http import JsonResponse
+
+def get_nearest_point(lat, lng, points):
+    min_dist = float('inf')
+    nearest = None
+    for p in points:
+        dist = math.hypot(lat - p.latitude, lng - p.longitude)
+        if dist < min_dist:
+            min_dist = dist
+            nearest = p
+    return nearest
+
 def drone_positions_api(request):
+    from .models import SmartDropPoint, Store
     drones = list(Drone.objects.filter(status='in_flight'))
+    smartdrops = list(SmartDropPoint.objects.all())
+    stores = list(Store.objects.all())
     data = []
     alerts = []
-
-    # --- Collision detection: check all pairs ---
-    for i, d1 in enumerate(drones):
-        delivery1 = d1.deliveries.filter(status='in_progress').first()
-        if not delivery1 or not d1.current_lat or not d1.current_lng:
-            continue
-        for j, d2 in enumerate(drones):
-            if i >= j:
-                continue  # avoid duplicate pairs and self
-            delivery2 = d2.deliveries.filter(status='in_progress').first()
-            if not delivery2 or not d2.current_lat or not d2.current_lng:
-                continue
-            dist = math.hypot(d1.current_lat - d2.current_lat, d1.current_lng - d2.current_lng)
-            if dist < 0.03:  # proximity threshold
-                alerts.append({
-                    'drones': [d1.id, d2.id],
-                    'message': f"⚠️ Warning: Drone #{d1.id} and Drone #{d2.id} are in close proximity! Consider rerouting."
-                })
 
     for d in drones:
         delivery = d.deliveries.filter(status='in_progress').first()
         if delivery:
-            # Simulate movement: move drone towards destination
+
             if d.current_lat is None or d.current_lng is None:
                 d.current_lat = delivery.source_store.latitude
                 d.current_lng = delivery.source_store.longitude
+                d.save(update_fields=['current_lat', 'current_lng'])
+            # Calculate max range in degrees (approx, for demo)
+            max_range_km = (d.speed_kmph * d.max_flight_time_min) / 60  # km
+            max_range_deg = max_range_km / 111.0  # 1 deg ~ 111km
 
-            # Predict next step
-            next_lat, next_lng = move_towards(
-                d.current_lat, d.current_lng,
-                delivery.destination_lat, delivery.destination_lng,
-                step=0.05
-            )
-
-            # Check for collision with other drones (future step)
-            for other in drones:
-                if other.id == d.id:
+            # If route is not set or too short, recalculate using Dijkstra
+            if not delivery.route or len(delivery.route) < 2:
+                route = find_smartdrop_route(
+                    (delivery.source_store.latitude, delivery.source_store.longitude),
+                    (delivery.destination_lat, delivery.destination_lng),
+                    smartdrops,
+                    max_range_deg
+                )
+                if route:
+                    delivery.route = route
+                    delivery.save()
+                else:
+                    alerts.append({
+                        'drones': [d.id],
+                        'message': "❌ No valid route to destination with current SmartDropPoints!"
+                    })
                     continue
-                other_delivery = other.deliveries.filter(status='in_progress').first()
-                if other_delivery:
-                    other_next_lat, other_next_lng = move_towards(
-                        other.current_lat or other_delivery.source_store.latitude,
-                        other.current_lng or other_delivery.source_store.longitude,
-                        other_delivery.destination_lat, other_delivery.destination_lng,
-                        step=0.05
-                    )
-                    dist = math.hypot(next_lat - other_next_lat, next_lng - other_next_lng)
-                    if dist < 0.02:
-                        alerts.append({
-                            'drones': [d.id, other.id],
-                            'message': f"🚨 Collision detected! Drone #{d.id} is being rerouted."
-                        })
-                        new_route = check_traffic_and_reroute(delivery)
-                        delivery.route = new_route
-                        delivery.save()
-                        if new_route and len(new_route) > 1:
-                            next_lat, next_lng = new_route[1]
-                        break
 
-            # Move towards destination (after reroute if needed)
+            # Move towards next waypoint in route
+            route = delivery.route
+            if len(route) > 1:
+                target_lat, target_lng = route[1]
+            else:
+                target_lat, target_lng = route[0]
+
+            # Calculate distance to move (simulate speed per API call)
+            step_distance = 0.01  # degrees per API call (tune as needed)
+            distance_to_target = math.hypot(target_lat - d.current_lat, target_lng - d.current_lng)
+            move_ratio = min(1, step_distance / distance_to_target) if distance_to_target > 0 else 1
+            next_lat = d.current_lat + (target_lat - d.current_lat) * move_ratio
+            next_lng = d.current_lng + (target_lng - d.current_lng) * move_ratio
+            actual_distance = math.hypot(next_lat - d.current_lat, next_lng - d.current_lng)
+
+            # --- Battery calculation based on distance ---
+            total_possible_distance = max_range_deg  # in degrees
+            battery_used = (actual_distance / total_possible_distance) * d.battery_capacity_mah
+            d.current_battery_mah = max(0, d.current_battery_mah - battery_used)
+            battery_percent = (d.current_battery_mah / d.battery_capacity_mah) * 100 if d.battery_capacity_mah else 0
+
+            # If battery drops to zero, mark as crashed
+            if d.current_battery_mah <= 0:
+                d.status = 'crashed'
+                d.save(update_fields=['status'])
+                alerts.append({
+                    'drones': [d.id],
+                    'message': f"💥 Drone #{d.id} has crashed due to battery depletion!"
+                })
+                continue
+# --- Reroute to nearest SmartDropPoint if battery < 20% and not already going there ---
+            if battery_percent < 20:
+                nearest_sdp = get_nearest_point(d.current_lat, d.current_lng, smartdrops)
+                if nearest_sdp:
+                    # Only reroute if not already heading to this SmartDropPoint
+                    if not (abs(target_lat - nearest_sdp.latitude) < 1e-4 and abs(target_lng - nearest_sdp.longitude) < 1e-4):
+                        alerts.append({
+                            'drones': [d.id],
+                            'message': f"🔋 Drone #{d.id} battery low ({int(battery_percent)}%). Rerouting to nearest SmartDrop Point: {nearest_sdp.name}!"
+                        })
+                        # Set new route: current -> smartdrop -> destination
+                        delivery.route = [
+                            [d.current_lat, d.current_lng],
+                            [nearest_sdp.latitude, nearest_sdp.longitude],
+                            [delivery.destination_lat, delivery.destination_lng]
+                        ]
+                        delivery.save()
+                        # Update target to SmartDropPoint for this step
+                        target_lat, target_lng = nearest_sdp.latitude, nearest_sdp.longitude
+                        # Recalculate movement for this step
+                        distance_to_target = math.hypot(target_lat - d.current_lat, target_lng - d.current_lng)
+                        move_ratio = min(1, step_distance / distance_to_target) if distance_to_target > 0 else 1
+                        next_lat = d.current_lat + (target_lat - d.current_lat) * move_ratio
+                        next_lng = d.current_lng + (target_lng - d.current_lng) * move_ratio
+
+            # Move drone
             d.current_lat = next_lat
             d.current_lng = next_lng
-            d.save(update_fields=['current_lat', 'current_lng'])
+            d.altitude_m = random.randint(50, 120)
+            d.save(update_fields=['current_lat', 'current_lng', 'current_battery_mah', 'altitude_m'])
 
-            # Check if drone has reached destination
-            dist_to_dest = math.hypot(delivery.destination_lat - next_lat, delivery.destination_lng - next_lng)
+            # Check if drone has reached the current waypoint
+            dist_to_next = math.hypot(target_lat - next_lat, target_lng - next_lng)
+            if dist_to_next < 0.01 and len(route) > 1:
+                # If at SmartDropPoint or Store, "charge" battery and remove from route
+                at_smartdrop = any(abs(target_lat - sdp.latitude) < 1e-4 and abs(target_lng - sdp.longitude) < 1e-4 for sdp in smartdrops)
+                at_store = any(abs(target_lat - s.latitude) < 1e-4 and abs(target_lng - s.longitude) < 1e-4 for s in stores)
+                if at_smartdrop or at_store:
+                    d.current_battery_mah = d.battery_capacity_mah
+                    d.save(update_fields=['current_battery_mah'])
+                    alerts.append({
+                        'drones': [d.id],
+                        'message': f"✅ Drone #{d.id} charged at {'SmartDrop Point' if at_smartdrop else 'Store'}!"
+                    })
+                # Remove reached waypoint from route
+                delivery.route = [route[0]] + route[2:]
+                delivery.save()
+
+            # Check if drone has reached final destination
+            final_lat, final_lng = route[-1]
+            dist_to_dest = math.hypot(final_lat - next_lat, final_lng - next_lng)
             if dist_to_dest < 0.01:
                 d.status = 'idle'
                 d.save(update_fields=['status'])
                 delivery.status = 'delivered'
                 delivery.save(update_fields=['status'])
+                # After delivery, go to nearest SmartDrop or Store
+                nearest_sdp = get_nearest_point(next_lat, next_lng, smartdrops)
+                nearest_store = get_nearest_point(next_lat, next_lng, stores)
+                if nearest_sdp and nearest_store:
+                    dist_sdp = math.hypot(next_lat - nearest_sdp.latitude, next_lng - nearest_sdp.longitude)
+                    dist_store = math.hypot(next_lat - nearest_store.latitude, next_lng - nearest_store.longitude)
+                    if dist_sdp < dist_store:
+                        d.current_lat = next_lat
+                        d.current_lng = next_lng
+                        d.status = 'in_flight'
+                        d.save(update_fields=['current_lat', 'current_lng', 'status'])
+                        d_route = [[next_lat, next_lng], [nearest_sdp.latitude, nearest_sdp.longitude]]
+                    else:
+                        d.current_lat = next_lat
+                        d.current_lng = next_lng
+                        d.status = 'in_flight'
+                        d.save(update_fields=['current_lat', 'current_lng', 'status'])
+                        d_route = [[next_lat, next_lng], [nearest_store.latitude, nearest_store.longitude]]
+                    # Assign new route for recharge
+                    d.deliveries.create(
+                        source_store=nearest_store if dist_store < dist_sdp else delivery.source_store,
+                        destination_lat=d_route[1][0],
+                        destination_lng=d_route[1][1],
+                        package_weight_kg=0,
+                        status='in_progress',
+                        route=d_route
+                    )
 
         data.append({
             'id': d.id,
@@ -601,12 +738,10 @@ def drone_positions_api(request):
             'altitude': getattr(d, 'altitude_m', 0),
             'speed': d.speed_kmph,
             'max_flight_time': d.max_flight_time_min,
-            'delivery_id': delivery.id if delivery else None,
             'status': d.get_status_display(),
             'route': delivery.route if delivery and delivery.route else [],
         })
     return JsonResponse({'drones': data, 'alerts': alerts})
-
 # 8. AI-based Re-routing (triggered by traffic or manual)
 def reroute_drone(request, delivery_id):
     delivery = get_object_or_404(Delivery, id=delivery_id)
@@ -624,3 +759,23 @@ def delivery_detail(request, delivery_id):
 def drone_detail(request, drone_id):
     drone = get_object_or_404(Drone, id=drone_id)
     return render(request, 'drone/drone_detail.html', {'drone': drone})
+
+
+from .models import SmartDropPoint
+
+def smartdrop_list(request):
+    points = SmartDropPoint.objects.all()
+    return render(request, 'drone/smartdrop_list.html', {'points': points})
+
+def add_smartdrop(request):
+    retailers = Retailer.objects.all()
+    if request.method == 'POST':
+        name = request.POST['name']
+        latitude = float(request.POST['latitude'])
+        longitude = float(request.POST['longitude'])
+        retailer_id = int(request.POST['retailer'])
+        retailer = Retailer.objects.get(id=retailer_id)
+        SmartDropPoint.objects.create(name=name, latitude=latitude, longitude=longitude, added_by=retailer)
+        messages.success(request, "SmartDrop Point added!")
+        return redirect('smartdrop_list')
+    return render(request, 'drone/add_smartdrop.html', {'retailers': retailers})

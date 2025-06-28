@@ -121,3 +121,13 @@ class DroneTelemetry(models.Model):
 
     def __str__(self):
         return f"{self.drone.name} @ {self.timestamp}"
+from django.db import models
+
+class SmartDropPoint(models.Model):
+    name = models.CharField(max_length=100)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    added_by = models.ForeignKey('Retailer', on_delete=models.CASCADE, related_name='smartdrop_points')
+
+    def __str__(self):
+        return self.name

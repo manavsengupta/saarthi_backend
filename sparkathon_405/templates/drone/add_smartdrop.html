@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Add SmartDrop Point</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="container py-4">
+      <h2>
+        <i class="fa-solid fa-charging-station text-secondary"></i> Add
+        SmartDrop Point
+      </h2>
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Latitude</label>
+          <input
+            type="number"
+            step="any"
+            name="latitude"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Longitude</label>
+          <input
+            type="number"
+            step="any"
+            name="longitude"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Retailer</label>
+          <select name="retailer" class="form-control" required>
+            {% for retailer in retailers %}
+            <option value="{{ retailer.id }}">{{ retailer.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-success">
+          <i class="fa-solid fa-plus"></i> Add
+        </button>
+        <a href="{% url 'smartdrop_list' %}" class="btn btn-secondary"
+          >Cancel</a
+        >
+      </form>
+    </div>
+    {% include "navbar.html" %}
+  </body>
+</html>
