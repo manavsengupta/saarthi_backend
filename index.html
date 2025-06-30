@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Delivery System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: "Inter", sans-serif; }
+        canvas { display: block; }
+        #monitor-view {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 250px;
+            height: 200px;
+            border: 2px solid #6366f1; /* Indigo-500 */
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0.7);
+            box-shadow: 0 4px 6px rgba(0 0 0 / 0.1);
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            box-shadow: 0 4px 6px rgba(0 0 0 / 0.1);
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container" class="relative w-screen h-screen">
+        <canvas id="mainCanvas"></canvas>
+        <div id="monitor-view">
+            <canvas id="monitorCanvas" class="w-full h-full"></canvas>
+        </div>
+        <div id="instructions" class="rounded-lg">
+            <p><strong>Instructions:</strong></p>
+            <ul class="list-disc ml-4">
+                <li>Click and drag to rotate the main view.</li>
+                <li>Scroll to zoom in/out.</li>
+                <li>The top-right box shows a "real-time" monitoring view.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        // Global variables for main scene
+        let scene, camera, renderer, controls;
+        // Global variables for monitoring view
+        let monitorScene, monitorCamera, monitorRenderer;
+
+        let drone, packageMesh;
+        const pathPoints = [];
+        let pathIndex = 0;
+        const droneSpeed = 0.8; // Increased speed for better visualization
+
+        // Global arrays for collision detection and dynamic elements
+        const buildings = []; // Stores THREE.Box3 for building boundaries
+        const movingCars = []; // Stores moving car objects and their paths
+
+        // Global constants for city layout
+        const spacing = 100; // Distance between main road centers
+        const cityGridSize = 15; // Increased number of blocks for a much larger city
+        const highwayHeight = 40;
+        const highwayZ = 100; // Z-position of the elevated highway
+        const railZ = -150; // Z-position of the railway
+
+        // Global variables for specific store locations
+        const walmartX = 0; // Centered
+        const walmartZ = spacing * 2; // Shift forward from center
+        const saarthiX = 0; // Centered
+        const saarthiZ = -spacing * 2; // Shift backward from center
+
+        const trains = []; // Trains array remains for animation
+
+        // Function to initialize the main 3D scene
+        function initMainScene() {
+            scene = new THREE.Scene();
+            // Background will be handled by the skybox
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000); // Increased far plane for better visibility
+            camera.position.set(500, 350, 700); // Adjusted initial camera position for larger city view
+            camera.lookAt(0, 30, 0); // Focus controls slightly above ground for better view
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('mainCanvas') });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; // Enable shadows
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Enable smooth camera movement
+            controls.dampingFactor = 0.005; //I Need to correct it more...... Adjusted damping factor for even smoother feel, especially for zooming 
+            controls.zoomSpeed = 0.5; //correction needed..... Decreased zoom speed for smoother zoom in/out
+            controls.maxPolarAngle = Math.PI / 2 - 0.1; // Prevent camera from going below ground
+            controls.target.set(0, 30, 0); // Focus controls slightly above ground for better view
+            controls.update();
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6); // Softer ambient light
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Brighter directional light
+            directionalLight.position.set(200, 300, 100);
+            directionalLight.target.position.set(0, 0, 0); // Point light at origin
+            directionalLight.castShadow = true; // Enable shadow casting for the light
+            directionalLight.shadow.mapSize.width = 4096; // Higher resolution shadows
+            directionalLight.shadow.mapSize.height = 4096;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 1500; // Increased far plane for shadow camera
+            const d = 700; // Increased frustum size for larger scene coverage
+            directionalLight.shadow.camera.left = -d;
+            directionalLight.shadow.camera.right = d;
+            directionalLight.shadow.camera.top = d;
+            directionalLight.shadow.camera.bottom = -d;
+            directionalLight.shadow.bias = -0.0005; //still i hv to fix it (fix shining on roads)
+            scene.add(directionalLight);
+            scene.add(directionalLight.target);
+
+            const hemisphereLight = new THREE.HemisphereLight(0xb1e1ff, 0xb97a20, 0.4); // Sky color, ground color, intensity
+            scene.add(hemisphereLight);
+        }
+
+        // Function to initialize the monitoring view
+        function initMonitorView() {
+            monitorScene = new THREE.Scene(); // Monitor view will contain clones of main scene objects
+            monitorScene.background = new THREE.Color(0x222222); // Darker background for monitor
+
+            const monitorCanvas = document.getElementById('monitorCanvas');
+            // Orthographic camera for top-down view - adjusted to cover larger area
+            monitorCamera = new THREE.OrthographicCamera(
+                -(cityGridSize * spacing) / 2 - 200, (cityGridSize * spacing) / 2 + 200, // Adjusted for larger city
+                (cityGridSize * spacing) / 2 + 200, -(cityGridSize * spacing) / 2 - 200,
+                0.1, 1000
+            );
+            monitorCamera.position.set(0, 1000, 0); // Higher top-down view for larger area
+            monitorCamera.lookAt(0, 0, 0); // Look at the center of the scene
+
+            monitorRenderer = new THREE.WebGLRenderer({ antialias: true, canvas: monitorCanvas });
+            monitorRenderer.setSize(monitorCanvas.clientWidth, monitorCanvas.clientHeight);
+        }
+
+        // Function to create the ground plane with roads and grass
+        function createGroundAndRoads() {
+            const groundSize = cityGridSize * spacing + 2 * spacing; // Expand ground to cover the whole city
+            // Grass areas
+            const grassMaterial = new THREE.MeshLambertMaterial({ color: 0x6b8e23 }); // Olive drab
+            const grassGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
+            const grass = new THREE.Mesh(grassGeometry, grassMaterial);
+            grass.rotation.x = -Math.PI / 2;
+            grass.receiveShadow = true;
+            scene.add(grass);
+            monitorScene.add(grass.clone());
+
+            // Main road material
+            const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x424242 }); // Dark grey
+            const laneMarkingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White for lane markings
+
+            const roadWidth = 20;
+            const roadLength = groundSize; // Roads span the entire ground
+
+            // Create main roads (a grid)
+            for (let i = 0; i < cityGridSize; i++) {
+                const offset = (i - Math.floor(cityGridSize / 2)) * spacing;
+
+                // Horizontal roads
+                const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(roadLength, roadWidth), roadMaterial);
+                hRoad.rotation.x = -Math.PI / 2;
+                hRoad.position.z = offset;
+                hRoad.position.y = 0.1; // Slightly above grass to prevent z-fighting
+                hRoad.receiveShadow = true;
+                scene.add(hRoad);
+                monitorScene.add(hRoad.clone());
+
+                // Add dashed lane markings to horizontal roads
+                const laneMarkingWidth = 5;
+                const laneMarkingLength = 10;
+                const gapLength = 10;
+                const numDashes = Math.floor(roadLength / (laneMarkingLength + gapLength));
+                for (let j = 0; j < numDashes; j++) {
+                    const dash = new THREE.Mesh(new THREE.PlaneGeometry(laneMarkingLength, laneMarkingWidth), laneMarkingMaterial);
+                    dash.rotation.x = -Math.PI / 2;
+                    dash.position.set(-roadLength / 2 + (laneMarkingLength + gapLength) * j + laneMarkingLength / 2, 0.15, offset);
+                    scene.add(dash);
+                    monitorScene.add(dash.clone());
+                }
+
+                // Vertical roads
+                const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(roadWidth, roadLength), roadMaterial);
+                vRoad.rotation.x = -Math.PI / 2;
+                vRoad.position.x = offset;
+                vRoad.position.y = 0.1;
+                vRoad.receiveShadow = true;
+                scene.add(vRoad);
+                monitorScene.add(vRoad.clone());
+
+                // Add dashed lane markings to vertical roads
+                for (let j = 0; j < numDashes; j++) {
+                    const dash = new THREE.Mesh(new THREE.PlaneGeometry(laneMarkingWidth, laneMarkingLength), laneMarkingMaterial);
+                    dash.rotation.x = -Math.PI / 2;
+                    dash.position.set(offset, 0.15, -roadLength / 2 + (laneMarkingLength + gapLength) * j + laneMarkingLength / 2);
+                    scene.add(dash);
+                    monitorScene.add(dash.clone());
+                }
+            }
+        }
+
+        // Function to create a building with more detail
+        function createDetailedBuilding(x, z, width, depth, height, baseColor) {
+            const buildingGroup = new THREE.Group();
+
+            // Main body - Changed to MeshLambertMaterial for less shine
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: baseColor });
+            const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.set(x, height / 2, z);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            buildingGroup.add(body);
+
+            // Add building bounding box for collision detection
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, height / 2, z), new THREE.Vector3(width, height, depth)));
+
+            // Roof detail
+            const roofGeometry = new THREE.BoxGeometry(width * 1.02, height * 0.05, depth * 1.02);
+            const roof = new THREE.Mesh(roofGeometry, new THREE.MeshLambertMaterial({ color: 0x555555 }));
+            roof.position.set(x, height + height * 0.025, z);
+            roof.castShadow = true;
+            roof.receiveShadow = true;
+            buildingGroup.add(roof);
+
+            // Add simple windows
+            const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87ceeb }); // Sky blue windows
+            const windowWidth = width * 0.15;
+            const windowHeight = height * 0.1;
+            const windowDepth = 0.1;
+
+            const numWindowsX = Math.floor((width - 5) / (windowWidth + 5));
+            const numWindowsY = Math.floor((height - 10) / (windowHeight + 10));
+
+            for (let i = 0; i < numWindowsX; i++) {
+                for (let j = 0; j < numWindowsY; j++) {
+                    // Front side
+                    let windowMesh = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth), windowMaterial);
+                    windowMesh.position.set(
+                        x - width / 2 + 2.5 + i * (windowWidth + 5) + windowWidth / 2,
+                        height / 2 - height / 2 + 5 + j * (windowHeight + 10) + windowHeight / 2,
+                        z + depth / 2 + windowDepth / 2
+                    );
+                    buildingGroup.add(windowMesh);
+
+                    // Back side
+                    windowMesh = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth), windowMaterial);
+                    windowMesh.position.set(
+                        x - width / 2 + 2.5 + i * (windowWidth + 5) + windowWidth / 2,
+                        height / 2 - height / 2 + 5 + j * (windowHeight + 10) + windowHeight / 2,
+                        z - depth / 2 - windowDepth / 2
+                    );
+                    buildingGroup.add(windowMesh);
+                }
+            }
+            // Add windows to left/right sides (simplified)
+            const numWindowsZ = Math.floor((depth - 5) / (windowWidth + 5));
+            for (let i = 0; i < numWindowsZ; i++) {
+                for (let j = 0; j < numWindowsY; j++) {
+                     // Right side
+                    let windowMesh = new THREE.Mesh(new THREE.BoxGeometry(windowDepth, windowHeight, windowWidth), windowMaterial);
+                    windowMesh.position.set(
+                        x + width / 2 + windowDepth / 2,
+                        height / 2 - height / 2 + 5 + j * (windowHeight + 10) + windowHeight / 2,
+                        z - depth / 2 + 2.5 + i * (windowWidth + 5) + windowWidth / 2
+                    );
+                    buildingGroup.add(windowMesh);
+
+                    // Left side
+                    windowMesh = new THREE.Mesh(new THREE.BoxGeometry(windowDepth, windowHeight, windowWidth), windowMaterial);
+                    windowMesh.position.set(
+                        x - width / 2 - windowDepth / 2,
+                        height / 2 - height / 2 + 5 + j * (windowHeight + 10) + windowHeight / 2,
+                        z - depth / 2 + 2.5 + i * (windowWidth + 5) + windowWidth / 2
+                    );
+                    buildingGroup.add(windowMesh);
+                }
+            }
+
+            // Ensure all building parts cast/receive shadows
+            buildingGroup.children.forEach(child => {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            });
+
+            scene.add(buildingGroup);
+            // Clone the entire group for the monitor scene
+            const monitorBuildingGroup = buildingGroup.clone();
+            monitorBuildingGroup.children.forEach(child => {
+                child.castShadow = false; // Disable shadows in monitor for performance/simplicity
+                child.receiveShadow = false;
+            });
+            monitorScene.add(monitorBuildingGroup);
+        }
+
+        // Function to create a simple tree
+        function createTree(x, z) {
+            const treeGroup = new THREE.Group();
+
+            // Trunk
+            const trunkGeometry = new THREE.CylinderGeometry(2, 2, 20, 8);
+            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 }); // Brown
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.set(x, 10, z);
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            treeGroup.add(trunk);
+
+            // Leaves
+            const leavesGeometry = new THREE.ConeGeometry(10, 30, 8);
+            const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 }); // Forest green
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.set(x, 35, z);
+            leaves.castShadow = true;
+            leaves.receiveShadow = true;
+            treeGroup.add(leaves);
+
+            scene.add(treeGroup);
+            monitorScene.add(treeGroup.clone());
+        }
+
+        // Function to create a streetlight
+        function createStreetlight(x, z) {
+            const streetlightGroup = new THREE.Group();
+
+            // Pole
+            const poleGeometry = new THREE.CylinderGeometry(0.5, 0.5, 25, 8);
+            const poleMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.set(x, 12.5, z);
+            pole.castShadow = true;
+            pole.receiveShadow = true;
+            streetlightGroup.add(pole);
+
+            // Light arm
+            const armGeometry = new THREE.BoxGeometry(10, 0.5, 0.5);
+            const arm = new THREE.Mesh(armGeometry, poleMaterial);
+            arm.position.set(x + 5, 24, z);
+            arm.castShadow = true;
+            arm.receiveShadow = true;
+            streetlightGroup.add(arm);
+
+            // Light source (simple sphere)
+            const lightGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+            const lightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffaa }); // Yellowish light
+            const light = new THREE.Mesh(lightGeometry, lightMaterial);
+            light.position.set(x + 10, 24, z);
+            streetlightGroup.add(light); // No shadow for light source mesh itself
+
+            scene.add(streetlightGroup);
+            monitorScene.add(streetlightGroup.clone());
+        }
+
+
+        // Function to create a parked car mesh (more detailed)
+        function createParkedCar(x, z, rotationY) {
+            const carGroup = new THREE.Group();
+            const bodyColor = new THREE.Color(Math.random() * 0xffffff);
+            // Reduced shininess and specular for cars
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: bodyColor, specular: 0x888888, shininess: 20 });
+            const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.8 });
+            const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+
+            // Base body
+            const bodyGeometry = new THREE.BoxGeometry(15, 5, 8);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 2.5; // Half of body height
+            carGroup.add(body);
+
+            // Cabin/Roof
+            const cabinGeometry = new THREE.BoxGeometry(10, 4, 7);
+            const cabin = new THREE.Mesh(cabinGeometry, bodyMaterial);
+            cabin.position.set(0, 7, 0);
+            carGroup.add(cabin);
+
+            // Windows (front, back, sides)
+            const frontWindow = new THREE.Mesh(new THREE.BoxGeometry(9, 2.5, 0.1), windowMaterial);
+            frontWindow.position.set(4, 7.5, 4);
+            frontWindow.rotation.y = Math.PI / 2; // For alignment on the cabin
+            carGroup.add(frontWindow);
+
+            const backWindow = new THREE.Mesh(new THREE.BoxGeometry(9, 2.5, 0.1), windowMaterial);
+            backWindow.position.set(-4, 7.5, 4);
+            backWindow.rotation.y = Math.PI / 2;
+            carGroup.add(backWindow);
+
+            const sideWindowGeometry = new THREE.BoxGeometry(0.1, 2.5, 6);
+            const leftWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+            leftWindow.position.set(0, 7.5, 0); // Position relative to cabin
+            leftWindow.position.x = 0; // Relative to the main body's center
+            leftWindow.position.z = 3.5; // Adjusted for side of the car
+            leftWindow.position.y = 7.5;
+            carGroup.add(leftWindow);
+
+            const rightWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+            rightWindow.position.set(0, 7.5, -3.5); // Adjusted for other side of the car
+            rightWindow.position.x = 0;
+            rightWindow.position.z = -3.5;
+            rightWindow.position.y = 7.5;
+            carGroup.add(rightWindow);
+
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(2, 2, 4, 8);
+            const wheel1 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel1.rotation.z = Math.PI / 2;
+            wheel1.position.set(-5, 1, 4);
+            carGroup.add(wheel1);
+
+            const wheel2 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel2.rotation.z = Math.PI / 2;
+            wheel2.position.set(5, 1, 4);
+            carGroup.add(wheel2);
+
+            const wheel3 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel3.rotation.z = Math.PI / 2;
+            wheel3.position.set(-5, 1, -4);
+            carGroup.add(wheel3);
+
+            const wheel4 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel4.rotation.z = Math.PI / 2;
+            wheel4.position.set(5, 1, -4);
+            carGroup.add(wheel4);
+
+            carGroup.scale.set(0.6, 0.6, 0.6); // Scale down cars for parked size
+            carGroup.position.set(x, 0.1, z); // Position on the ground
+            carGroup.rotation.y = rotationY; // Set initial rotation
+
+            // Ensure all car parts cast/receive shadows
+            carGroup.children.forEach(child => {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            });
+
+            scene.add(carGroup);
+            monitorScene.add(carGroup.clone()); // Add clone to monitor scene for representation
+            return carGroup;
+        }
+
+        // Function to create parked cars within a city block
+        function createParkedCarsInBlock(blockCenterX, blockCenterZ) {
+            const roadSideOffset = (spacing / 2) - 10; // Offset from block center to road edge
+            const carSpacing = 10; // Space between parked cars
+            const carPlacementProbability = 0.3; // Probability to place a car
+
+            // Park cars along the +Z side of the horizontal road
+            for (let xOffset = -spacing / 2 + 20; xOffset < spacing / 2 - 20; xOffset += carSpacing * 2) {
+                if (Math.random() < carPlacementProbability) {
+                    createParkedCar(blockCenterX + xOffset, blockCenterZ + roadSideOffset, Math.PI / 2); // Parked along Z, facing +X
+                }
+            }
+            // Park cars along the -Z side of the horizontal road
+            for (let xOffset = -spacing / 2 + 20; xOffset < spacing / 2 - 20; xOffset += carSpacing * 2) {
+                 if (Math.random() < carPlacementProbability) {
+                    createParkedCar(blockCenterX + xOffset, blockCenterZ - roadSideOffset, -Math.PI / 2); // Parked along Z, facing -X
+                }
+            }
+
+            // Park cars along the +X side of the vertical road
+            for (let zOffset = -spacing / 2 + 20; zOffset < spacing / 2 - 20; zOffset += carSpacing * 2) {
+                if (Math.random() < carPlacementProbability) {
+                    createParkedCar(blockCenterX + roadSideOffset, blockCenterZ + zOffset, Math.PI); // Parked along X, facing +Z
+                }
+            }
+            // Park cars along the -X side of the vertical road
+            for (let zOffset = -spacing / 2 + 20; zOffset < spacing / 2 - 20; zOffset += carSpacing * 2) {
+                if (Math.random() < carPlacementProbability) {
+                    createParkedCar(blockCenterX - roadSideOffset, blockCenterZ + zOffset, 0); // Parked along X, facing -Z
+                }
+            }
+        }
+
+        // Function to create a moving car
+        function createMovingCar(pathPoints, speed, color) {
+            const carGroup = new THREE.Group();
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: color, specular: 0x888888, shininess: 20 });
+            const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.8 });
+            const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+
+            // Base body
+            const bodyGeometry = new THREE.BoxGeometry(15, 5, 8);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 2.5;
+            carGroup.add(body);
+
+            // Cabin/Roof
+            const cabinGeometry = new THREE.BoxGeometry(10, 4, 7);
+            const cabin = new THREE.Mesh(cabinGeometry, bodyMaterial);
+            cabin.position.set(0, 7, 0);
+            carGroup.add(cabin);
+
+            // Windows (front, back, sides) - simplified, similar to parked car
+            const frontWindow = new THREE.Mesh(new THREE.BoxGeometry(9, 2.5, 0.1), windowMaterial);
+            frontWindow.position.set(4, 7.5, 4);
+            frontWindow.rotation.y = Math.PI / 2;
+            carGroup.add(frontWindow);
+
+            const backWindow = new THREE.Mesh(new THREE.BoxGeometry(9, 2.5, 0.1), windowMaterial);
+            backWindow.position.set(-4, 7.5, 4);
+            backWindow.rotation.y = Math.PI / 2;
+            carGroup.add(backWindow);
+
+            const sideWindowGeometry = new THREE.BoxGeometry(0.1, 2.5, 6);
+            const leftWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+            leftWindow.position.set(0, 7.5, 3.5);
+            carGroup.add(leftWindow);
+
+            const rightWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+            rightWindow.position.set(0, 7.5, -3.5);
+            carGroup.add(rightWindow);
+
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(2, 2, 4, 8);
+            const wheel1 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel1.rotation.z = Math.PI / 2;
+            wheel1.position.set(-5, 1, 4);
+            carGroup.add(wheel1);
+
+            const wheel2 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel2.rotation.z = Math.PI / 2;
+            wheel2.position.set(5, 1, 4);
+            carGroup.add(wheel2);
+
+            const wheel3 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel3.rotation.z = Math.PI / 2;
+            wheel3.position.set(-5, 1, -4);
+            carGroup.add(wheel3);
+
+            const wheel4 = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel4.rotation.z = Math.PI / 2;
+            wheel4.position.set(5, 1, -4);
+            carGroup.add(wheel4);
+
+            carGroup.scale.set(0.6, 0.6, 0.6); // Scale down cars for consistent size
+            carGroup.position.set(pathPoints[0].x, 0.1, pathPoints[0].z); // Initial position
+
+            carGroup.children.forEach(child => {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            });
+
+            scene.add(carGroup);
+            monitorScene.add(carGroup.clone()); // Add clone to monitor scene
+
+            const carObject = {
+                mesh: carGroup,
+                path: new THREE.CatmullRomCurve3(pathPoints, false), // Path for the car
+                progress: 0,
+                speed: speed,
+                direction: 1 // 1 for forward, -1 for backward
+            };
+            movingCars.push(carObject); // Add to moving cars array
+        }
+
+
+        // Function to create a track segment (simple rail)
+        function createTrackSegment(x, z, length, rotationY) {
+            const trackGroup = new THREE.Group();
+            const railMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const sleeperMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 }); // Brown
+
+            // Rails
+            const railGeometry = new THREE.BoxGeometry(length, 0.5, 0.5);
+            const rail1 = new THREE.Mesh(railGeometry, railMaterial);
+            rail1.position.z = -3;
+            rail1.castShadow = true;
+            rail1.receiveShadow = true;
+            trackGroup.add(rail1);
+
+            const rail2 = new THREE.Mesh(railGeometry, railMaterial);
+            rail2.position.z = 3;
+            rail2.castShadow = true;
+            rail2.receiveShadow = true;
+            trackGroup.add(rail2);
+
+            // Sleepers
+            const sleeperGeometry = new THREE.BoxGeometry(1, 0.5, 8);
+            const numSleepers = Math.floor(length / 5);
+            for (let i = 0; i < numSleepers; i++) {
+                const sleeper = new THREE.Mesh(sleeperGeometry, sleeperMaterial);
+                sleeper.position.x = -length / 2 + (length / numSleepers) * i;
+                sleeper.castShadow = true;
+                sleeper.receiveShadow = true;
+                trackGroup.add(sleeper);
+            }
+
+            trackGroup.position.set(x, 0.2, z);
+            trackGroup.rotation.y = rotationY;
+            scene.add(trackGroup);
+            monitorScene.add(trackGroup.clone());
+        }
+
+        // Function to create a simple train
+        function createTrain() {
+            const trainGroup = new THREE.Group();
+            const locoMaterial = new THREE.MeshPhongMaterial({ color: 0xcc0000, specular: 0xffffff, shininess: 80 }); // Red, shiny
+            const carriageMaterial = new THREE.MeshPhongMaterial({ color: 0x0066cc, specular: 0xaaaaaa, shininess: 30 }); // Blue
+
+            // Locomotive
+            const locoBody = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 10), locoMaterial);
+            locoBody.position.y = 5;
+            locoBody.castShadow = true;
+            locoBody.receiveShadow = true;
+            trainGroup.add(locoBody);
+
+            // Carriages
+            const numCarriages = 3;
+            for (let i = 0; i < numCarriages; i++) {
+                const carriage = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 10), carriageMaterial);
+                carriage.position.set(-20 - (i * 18), 4, 0); // Offset each carriage
+                carriage.castShadow = true;
+                carriage.receiveShadow = true;
+                trainGroup.add(carriage);
+            }
+
+            scene.add(trainGroup);
+            monitorScene.add(trainGroup.clone());
+            return trainGroup;
+        }
+
+        // Function to create rail tracks along a path
+        function createRailway() {
+            const railwayLength = cityGridSize * spacing + 100;
+            // Straight track along X-axis
+            createTrackSegment(0, railZ, railwayLength, 0);
+        }
+
+        // Function to create an elevated highway structure
+        function createElevatedHighway() {
+            const highwayWidth = 30;
+            const highwayLength = cityGridSize * spacing + 100; // Spans entire city
+            const pillarSpacing = 70;
+
+            // Road surface
+            const roadGeometry = new THREE.BoxGeometry(highwayLength, 2, highwayWidth);
+            const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+            const road = new THREE.Mesh(roadGeometry, roadMaterial);
+            road.position.set(0, highwayHeight + 1, highwayZ);
+            road.castShadow = true;
+            road.receiveShadow = true;
+            scene.add(road);
+            monitorScene.add(road.clone());
+
+            // Pillars
+            const pillarMaterial = new THREE.MeshLambertMaterial({ color: 0x9e9e9e }); // Light gray
+            const numPillars = Math.floor(highwayLength / pillarSpacing);
+            for (let i = 0; i < numPillars; i++) {
+                const pillarGeometry = new THREE.CylinderGeometry(5, 5, highwayHeight, 8);
+                const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+                pillar.position.set(
+                    -highwayLength / 2 + (highwayLength / numPillars) * i,
+                    highwayHeight / 2,
+                    highwayZ
+                );
+                pillar.castShadow = true;
+                pillar.receiveShadow = true;
+                scene.add(pillar);
+                monitorScene.add(pillar.clone());
+            }
+        }
+
+        // Function to create a cricket ground
+        function createCricketGround(x, z) {
+            const groundGroup = new THREE.Group();
+
+            // Outer boundary (grass)
+            const boundaryRadius = (spacing / 2) - 10; // Fits within a block
+            const boundaryGeometry = new THREE.CircleGeometry(boundaryRadius, 64);
+            const boundaryMaterial = new THREE.MeshLambertMaterial({ color: 0x3cb371 }); // Green
+            const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+            boundary.rotation.x = -Math.PI / 2;
+            boundary.position.set(x, 0.2, z);
+            boundary.receiveShadow = true;
+            groundGroup.add(boundary);
+
+            // Pitch (central rectangle)
+            const pitchWidth = 80;
+            const pitchLength = 10;
+            const pitchGeometry = new THREE.BoxGeometry(pitchWidth, 0.5, pitchLength);
+            const pitchMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 }); // Brown (dirt/clay)
+            const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
+            pitch.position.set(x, 0.3, z); // Slightly above boundary
+            pitch.castShadow = true;
+            pitch.receiveShadow = true;
+            groundGroup.add(pitch);
+
+            // Stumps (two sets)
+            const stumpHeight = 5;
+            const stumpRadius = 0.5;
+            const stumpMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff }); // White
+
+            // First set of stumps
+            for (let i = 0; i < 3; i++) {
+                const stump = new THREE.Mesh(new THREE.CylinderGeometry(stumpRadius, stumpRadius, stumpHeight, 8), stumpMaterial);
+                stump.position.set(x + pitchWidth / 2 - 2, stumpHeight / 2 + 0.3, z - 3 + (i * 3));
+                stump.castShadow = true;
+                stump.receiveShadow = true;
+                groundGroup.add(stump);
+            }
+            // Second set of stumps
+            for (let i = 0; i < 3; i++) {
+                const stump = new THREE.Mesh(new THREE.CylinderGeometry(stumpRadius, stumpRadius, stumpHeight, 8), stumpMaterial);
+                stump.position.set(x - pitchWidth / 2 + 2, stumpHeight / 2 + 0.3, z - 3 + (i * 3));
+                stump.castShadow = true;
+                stump.receiveShadow = true;
+                groundGroup.add(stump);
+            }
+
+            scene.add(groundGroup);
+            monitorScene.add(groundGroup.clone());
+        }
+
+        // Function to create a mall/shopping area
+        function createMall(x, z, width, depth, height, baseColor) {
+            const mallGroup = new THREE.Group();
+
+            // Main mall body (less shine)
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: baseColor });
+            const bodyGeometry = new THREE.BoxGeometry(width, height, depth);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.set(x, height / 2, z);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            mallGroup.add(body);
+
+            // Add building bounding box for collision detection
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, height / 2, z), new THREE.Vector3(width, height, depth)));
+
+            // Entrance canopy/roof detail
+            const canopyGeometry = new THREE.BoxGeometry(width * 0.5, height * 0.1, depth * 0.2);
+            const canopyMaterial = new THREE.MeshLambertMaterial({ color: 0x777777 });
+            const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
+            canopy.position.set(x, height * 0.8 + height * 0.05, z + depth / 2 + depth * 0.1);
+            canopy.castShadow = true;
+            canopy.receiveShadow = true;
+            mallGroup.add(canopy);
+
+            // Large windows for shop fronts
+            const largeWindowMaterial = new THREE.MeshLambertMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.7 });
+            const numFrontWindows = Math.floor((width - 10) / 25);
+            for (let i = 0; i < numFrontWindows; i++) {
+                const windowPane = new THREE.Mesh(new THREE.BoxGeometry(20, height * 0.6, 0.1), largeWindowMaterial);
+                windowPane.position.set(
+                    x - width / 2 + 10 + i * 25 + 10,
+                    height * 0.4,
+                    z + depth / 2 + 0.1
+                );
+                mallGroup.add(windowPane);
+            }
+
+            // Ensure all mall parts cast/receive shadows
+            mallGroup.children.forEach(child => {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            });
+
+            scene.add(mallGroup);
+            const monitorMallGroup = mallGroup.clone();
+            monitorMallGroup.children.forEach(child => {
+                child.castShadow = false; // Disable shadows in monitor for performance/simodhcity
+                child.receiveShadow = false;
+            });
+            monitorScene.add(monitorMallGroup);
+        }
+
+        // Helper function to create a text banner (using CanvasTexture for clear text)
+        function createTextBanner(text, textColor, backgroundColor, bannerWidth, bannerHeight, fontSize, positionX, positionY, positionZ, drawIcon = null, iconPosition = 'left') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 512;
+
+            const context = canvas.getContext('2d');
+            context.fillStyle = backgroundColor;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            context.font = `Bold ${fontSize}px Arial`;
+            context.fillStyle = textColor;
+            context.textBaseline = 'middle';
+
+            let textMetrics = context.measureText(text);
+            let textWidth = textMetrics.width;
+
+            let textDrawX;
+            let iconDrawX;
+            const desiredGap = 20; // Gap between text and icon on canvas
+
+            if (drawIcon && iconPosition === 'right') {
+                const effectiveIconWidth = 80; // Adjusted for smaller icon
+                const totalContentWidth = textWidth + desiredGap + effectiveIconWidth;
+
+                const startContentX = (canvas.width - totalContentWidth) / 2;
+
+                context.textAlign = 'left';
+                textDrawX = startContentX;
+                context.fillText(text, textDrawX, canvas.height / 2);
+
+                iconDrawX = startContentX + textWidth + desiredGap + effectiveIconWidth / 2;
+                drawIcon(context, iconDrawX, canvas.height / 2);
+
+            } else if (drawIcon && iconPosition === 'left') {
+                const effectiveIconWidth = 80; // Adjusted for smaller icon
+                const totalContentWidth = effectiveIconWidth + desiredGap + textWidth;
+                const startContentX = (canvas.width - totalContentWidth) / 2;
+
+                iconDrawX = startContentX + effectiveIconWidth / 2;
+                drawIcon(context, iconDrawX, canvas.height / 2);
+
+                context.textAlign = 'left';
+                textDrawX = startContentX + effectiveIconWidth + desiredGap;
+                context.fillText(text, textDrawX, canvas.height / 2);
+            } else {
+                context.textAlign = 'center';
+                textDrawX = canvas.width / 2;
+                context.fillText(text, textDrawX, canvas.height / 2);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+            const geometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
+            const banner = new THREE.Mesh(geometry, material);
+
+            banner.position.set(positionX, positionY, positionZ);
+            banner.castShadow = false;
+            banner.receiveShadow = false;
+
+            return banner;
+        }
+
+        // Function to draw the Walmart "spark" symbol with 5 lines
+        function drawWalmartSparkIcon(context, x, y) {
+            const size = 80; // Reduced overall size of the spark
+            const segmentLength = size * 0.4;
+            const segmentWidth = size * 0.15;
+            const numSegments = 5;
+
+            context.save();
+            context.translate(x, y);
+            context.fillStyle = '#FFC220'; // Walmart yellow
+            context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            context.shadowBlur = 8; // Slightly reduced blur
+            context.shadowOffsetX = 4; // Slightly reduced offset
+            context.shadowOffsetY = 4;
+
+            for (let i = 0; i < numSegments; i++) {
+                context.beginPath();
+                context.moveTo(0, 0);
+                context.lineTo(segmentLength, segmentWidth / 2);
+                context.lineTo(segmentLength, -segmentWidth / 2);
+                context.closePath();
+                context.fill();
+                context.rotate(Math.PI * 2 / numSegments);
+            }
+            context.restore();
+        }
+
+
+        // Function to create a Walmart-like store
+        function createWalmartStore(x, z) {
+            const storeGroup = new THREE.Group();
+            storeGroup.position.set(x, 0, z); // Group's global position
+
+            const storeWidth = spacing * 1.5; // Very large
+            const storeDepth = spacing * 1.2;
+            const storeHeight = 25; // Relatively flat
+
+            // Main building body (positioned relative to group origin)
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x9cb9e9 }); // Light blue/grey
+            const bodyGeometry = new THREE.BoxGeometry(storeWidth, storeHeight, storeDepth);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.set(0, storeHeight / 2, 0); // Local position within group
+            body.castShadow = true;
+            body.receiveShadow = true;
+            storeGroup.add(body);
+
+            // Add building bounding box for collision detection
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, storeHeight / 2, z), new THREE.Vector3(storeWidth, storeHeight, storeDepth)));
+
+            // Yellow accent stripe/sign area
+            const accentMaterial = new THREE.MeshLambertMaterial({ color: 0xffd700 }); // Gold/yellow
+            const accentStripe = new THREE.Mesh(new THREE.BoxGeometry(storeWidth * 0.9, storeHeight * 0.2, storeDepth + 0.5), accentMaterial);
+            accentStripe.position.set(0, storeHeight * 0.8, 0); // Local position within group
+            storeGroup.add(accentStripe);
+
+            // Simple entrance facade
+            const entranceMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+            const entrance = new THREE.Mesh(new THREE.BoxGeometry(storeWidth * 0.3, storeHeight * 0.7, 5), entranceMaterial);
+            entrance.position.set(0, storeHeight * 0.35, storeDepth / 2 + 2.5); // Local position within group, at front
+            storeGroup.add(entrance);
+
+            // Parking lot (large plane in front)
+            const parkingMaterial = new THREE.MeshLambertMaterial({ color: 0x3a3a3a }); // Dark grey asphalt
+            const parkingGeometry = new THREE.PlaneGeometry(storeWidth * 1.2, storeDepth * 0.8);
+            const parkingLot = new THREE.Mesh(parkingGeometry, parkingMaterial);
+            parkingLot.rotation.x = -Math.PI / 2;
+            parkingLot.position.set(0, 0.1, storeDepth / 2 + storeDepth * 0.4); // Local position within group
+            parkingLot.receiveShadow = true;
+            storeGroup.add(parkingLot);
+
+            // Add WALMART banner with icon positioned to the right
+            const bannerHeight = 60; // Reduced banner height
+            const bannerWidth = 350; // Reduced banner width
+            const bannerFontSize = 80; // Adjusted font size
+
+            const bannerY = storeHeight + (bannerHeight / 2) + 15; // Adjusted Y position
+            const bannerZ = storeDepth / 2 + 10;
+
+            const walmartBanner = createTextBanner("Walmart", "#FFFFFF", "#0071C5", bannerWidth, bannerHeight, bannerFontSize, x, bannerY, z + bannerZ, drawWalmartSparkIcon, 'right');
+            scene.add(walmartBanner);
+
+            // Monitor view representation
+            const monitorStoreBody = new THREE.Mesh(
+                new THREE.BoxGeometry(storeWidth, storeHeight, storeDepth),
+                new THREE.MeshBasicMaterial({ color: 0x9cb9e9 })
+            );
+            monitorStoreBody.position.set(x, storeHeight / 2, z);
+            monitorScene.add(monitorStoreBody);
+
+            const monitorWalmartSmallBanner = createTextBanner("W", "#FFFFFF", "#0071C5", 40, 10, 20, x, storeHeight + 10, z + storeDepth / 2 + 1);
+            monitorScene.add(monitorWalmartSmallBanner);
+
+            scene.add(storeGroup);
+        }
+
+        // Function to create a Saarthi Warehouse
+        function createSaarthiWarehouse(x, z) {
+            const warehouseGroup = new THREE.Group(); // This will be the main complex group
+            warehouseGroup.position.set(x, 0, z); // Group's global position
+
+            const warehouseWidth = spacing * 1.8; // Main warehouse dimensions
+            const warehouseDepth = spacing * 1.5;
+            const warehouseHeight = 30;
+
+            // Main building body
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 }); // Dim grey
+            const bodyGeometry = new THREE.BoxGeometry(warehouseWidth, warehouseHeight, warehouseDepth);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.set(0, warehouseHeight / 2, 0); // Local position within group
+            body.castShadow = true;
+            body.receiveShadow = true;
+            warehouseGroup.add(body);
+
+            // Add main warehouse bounding box for collision detection
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, warehouseHeight / 2, z), new THREE.Vector3(warehouseWidth, warehouseHeight, warehouseDepth)));
+
+
+            // Roof vents/details (local positions)
+            const ventMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+            const numVents = Math.floor(warehouseWidth / 50);
+            for (let i = 0; i < numVents; i++) {
+                const vent = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 10), ventMaterial);
+                vent.position.set(
+                    -warehouseWidth / 2 + 25 + i * 50,
+                    warehouseHeight + 2.5,
+                    (Math.random() - 0.5) * (warehouseDepth - 20)
+                );
+                warehouseGroup.add(vent);
+            }
+
+            // Loading bay doors (local positions)
+            const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+            const numDoors = Math.floor((warehouseWidth * 0.7) / 20);
+            for (let i = 0; i < numDoors; i++) {
+                const door = new THREE.Mesh(new THREE.BoxGeometry(15, warehouseHeight * 0.6, 0.5), doorMaterial);
+                door.position.set(
+                    -warehouseWidth / 2 + 15 + i * 20,
+                    warehouseHeight * 0.3,
+                    -warehouseDepth / 2 - 0.25
+                );
+                warehouseGroup.add(door);
+            }
+
+            // --- Connected Buildings ---
+            const connectedBuildingWidth = spacing * 0.7; // Slightly smaller
+            const connectedBuildingDepth = spacing * 0.6;
+            const connectedBuildingHeight = 25; // Slightly shorter than main, but still substantial
+
+            const connectedBodyMaterial = new THREE.MeshLambertMaterial({ color: 0x777777 }); // A lighter grey
+
+            // Building 1 (to the left of main warehouse)
+            const b1_x_offset = -(warehouseWidth / 2 + connectedBuildingWidth / 2 + 5); // 5 unit gap
+            const building1 = new THREE.Mesh(new THREE.BoxGeometry(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth), connectedBodyMaterial);
+            building1.position.set(b1_x_offset, connectedBuildingHeight / 2, 0);
+            building1.castShadow = true;
+            building1.receiveShadow = true;
+            warehouseGroup.add(building1);
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x + b1_x_offset, connectedBuildingHeight / 2, z), new THREE.Vector3(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth)));
+
+
+            // Building 2 (to the right of main warehouse)
+            const b2_x_offset = (warehouseWidth / 2 + connectedBuildingWidth / 2 + 5);
+            const building2 = new THREE.Mesh(new THREE.BoxGeometry(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth), connectedBodyMaterial);
+            building2.position.set(b2_x_offset, connectedBuildingHeight / 2, 0);
+            building2.castShadow = true;
+            building2.receiveShadow = true;
+            warehouseGroup.add(building2);
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x + b2_x_offset, connectedBuildingHeight / 2, z), new THREE.Vector3(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth)));
+
+
+            // Building 3 (behind the main warehouse, slightly offset to one side)
+            const b3_z_offset = -(warehouseDepth / 2 + connectedBuildingDepth / 2 + 5);
+            const b3_x_offset = warehouseWidth / 4; // Offset to one side
+            const building3 = new THREE.Mesh(new THREE.BoxGeometry(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth), connectedBodyMaterial);
+            building3.position.set(b3_x_offset, connectedBuildingHeight / 2, b3_z_offset);
+            building3.castShadow = true;
+            building3.receiveShadow = true;
+            warehouseGroup.add(building3);
+            buildings.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x + b3_x_offset, connectedBuildingHeight / 2, z + b3_z_offset), new THREE.Vector3(connectedBuildingWidth, connectedBuildingHeight, connectedBuildingDepth)));
+
+
+            // --- Drone Landing Areas on Roofs ---
+            const landingPadSize = 60; // Slightly smaller pads for multiple
+            const landingPadHeightOffset = 0.5;
+
+            // Define positions for multiple helipads relative to the group's origin
+            const helipadPositions = [
+                // On main warehouse
+                { x: 0, y: warehouseHeight + landingPadHeightOffset, z: 0 }, // Central
+                { x: warehouseWidth * 0.25, y: warehouseHeight + landingPadHeightOffset, z: warehouseDepth * 0.25 }, // Top-right
+                { x: -warehouseWidth * 0.25, y: warehouseHeight + landingPadHeightOffset, z: warehouseDepth * 0.25 }, // Top-left
+                { x: warehouseWidth * 0.25, y: warehouseHeight + landingPadHeightOffset, z: -warehouseDepth * 0.25 }, // Bottom-right
+                { x: -warehouseWidth * 0.25, y: warehouseHeight + landingPadHeightOffset, z: -warehouseDepth * 0.25 }, // Bottom-left
+
+                // On connected building 1 (left)
+                { x: b1_x_offset, y: connectedBuildingHeight + landingPadHeightOffset, z: 0 },
+                // On connected building 2 (right)
+                { x: b2_x_offset, y: connectedBuildingHeight + landingPadHeightOffset, z: 0 },
+                // On connected building 3 (behind)
+                { x: b3_x_offset, y: connectedBuildingHeight + landingPadHeightOffset, z: b3_z_offset },
+            ];
+
+            helipadPositions.forEach(pos => {
+                // Landing Platform (grey square)
+                const platformGeometry = new THREE.PlaneGeometry(landingPadSize, landingPadSize);
+                const platformMaterial = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+                const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+                platform.rotation.x = -Math.PI / 2;
+                platform.position.set(pos.x, pos.y, pos.z);
+                platform.receiveShadow = true;
+                warehouseGroup.add(platform);
+
+                // Landing Circle (green)
+                const circleRadius = landingPadSize * 0.4;
+                const circleGeometry = new THREE.CircleGeometry(circleRadius, 32);
+                const circleMaterial = new THREE.MeshLambertMaterial({ color: 0x008000 });
+                const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+                circle.rotation.x = -Math.PI / 2;
+                circle.position.set(pos.x, pos.y + 0.1, pos.z);
+                circle.receiveShadow = true;
+                warehouseGroup.add(circle);
+
+                // "H" symbol (white)
+                const H_Shape = new THREE.Shape();
+                const h_width = circleRadius * 0.5;
+                const h_height = circleRadius * 0.7;
+                const h_bar_width = h_width * 0.2;
+
+                H_Shape.moveTo(-h_width / 2, -h_height / 2);
+                H_Shape.lineTo(-h_width / 2, h_height / 2);
+                H_Shape.lineTo(-h_width / 2 + h_bar_width, h_height / 2);
+                H_Shape.lineTo(-h_width / 2 + h_bar_width, h_bar_width / 2);
+                H_Shape.lineTo(h_width / 2 - h_bar_width, h_bar_width / 2);
+                H_Shape.lineTo(h_width / 2 - h_bar_width, h_height / 2);
+                H_Shape.lineTo(h_width / 2, h_height / 2);
+                H_Shape.lineTo(h_width / 2, -h_height / 2);
+                H_Shape.lineTo(h_width / 2 - h_bar_width, -h_height / 2);
+                H_Shape.lineTo(h_width / 2 - h_bar_width, -h_bar_width / 2);
+                H_Shape.lineTo(-h_width / 2 + h_bar_width, -h_bar_width / 2);
+                H_Shape.lineTo(-h_width / 2 + h_bar_width, -h_height / 2);
+                H_Shape.closePath();
+
+                const H_Geometry = new THREE.ShapeGeometry(H_Shape);
+                const H_Material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+                const H_Mesh = new THREE.Mesh(H_Geometry, H_Material);
+                H_Mesh.rotation.x = -Math.PI / 2;
+                H_Mesh.position.set(pos.x, pos.y + 0.2, pos.z);
+                H_Mesh.receiveShadow = true;
+                warehouseGroup.add(H_Mesh);
+            });
+
+            // Add SAARTHI WAREHOUSE banner
+            const bannerHeight = 50;
+            const bannerWidth = 400;
+            const bannerFontSize = 60;
+
+            const bannerY = warehouseHeight + (bannerHeight / 2) + 10;
+            // Increased bannerZ to move it further forward
+            const bannerZ = warehouseDepth / 2 + 25; // Adjusted for more front visibility
+
+            // Create banner as a child of the group for easier positioning relative to complex
+            // Position relative to the group's origin (0,0,0) with appropriate offsets
+            const saarthiBanner = createTextBanner("SAARTHI WAREHOUSE", "#FFFFFF", "#4CAF50", bannerWidth, bannerHeight, bannerFontSize, 0, bannerY - warehouseHeight/2 + 25, bannerZ - warehouseDepth/2);
+            warehouseGroup.add(saarthiBanner); // Add to the warehouseGroup
+
+            scene.add(warehouseGroup); // Add the entire complex group to the main scene
+
+            // --- Monitor view representation ---
+            // Clone the entire group for the monitor scene
+            const monitorWarehouseGroup = warehouseGroup.clone();
+            // To ensure the materials are basic for the monitor scene
+            monitorWarehouseGroup.traverse(child => {
+                if (child.isMesh && !(child.geometry.type === 'PlaneGeometry' && child.material.map)) { // Exclude mapped planes (banners) and ensure it's a mesh
+                    if (Array.isArray(child.material)) {
+                        child.material = child.material.map(mat => new THREE.MeshBasicMaterial({ color: mat.color }));
+                    } else {
+                        child.material = new THREE.MeshBasicMaterial({ color: child.material.color });
+                    }
+                    child.castShadow = false;
+                    child.receiveShadow = false;
+                }
+            });
+            monitorScene.add(monitorWarehouseGroup);
+        }
+
+
+        // Function to create multiple buildings and parks to form a city
+        function createCity() {
+            const buildingColors = [0x708090, 0xb0c4de, 0x6a5acd, 0x8a2be2, 0x4682b4, 0x5f9ea0, 0x9acd32, 0xd2b48c, 0xffa07a]; // More varied colors
+            const mallColors = [0xadd8e6, 0xffc0cb, 0x90ee90, 0xffff99]; // Light blue, pink, light green, light yellow for malls
+            const parkMaterial = new THREE.MeshLambertMaterial({ color: 0x3cb371 }); // Medium sea green
+
+            // Pre-place key structures
+            createWalmartStore(walmartX, walmartZ);
+            createSaarthiWarehouse(saarthiX, saarthiZ);
+
+            // Iterate over the grid formed by roads
+            for (let i = 0; i < cityGridSize; i++) {
+                for (let j = 0; j < cityGridSize; j++) {
+                    // Calculate block center
+                    const blockCenterX = (i - Math.floor(cityGridSize / 2)) * spacing;
+                    const blockCenterZ = (j - Math.floor(cityGridSize / 2)) * spacing;
+
+                    // Skip placing other structures if this block is taken by a specific store
+                    // Increased buffer for larger buildings
+                    const buffer = spacing * 1.5; // Ensure ample space around the large stores
+                    const isWalmartBlockArea = (Math.abs(blockCenterX - walmartX) < buffer) && (Math.abs(blockCenterZ - walmartZ) < buffer);
+                    const isSaarthiBlockArea = (Math.abs(blockCenterX - saarthiX) < buffer) && (Math.abs(blockCenterZ - saarthiZ) < buffer);
+
+                    if (isWalmartBlockArea || isSaarthiBlockArea) {
+                        // Place streetlights and cars for these blocks but not random buildings
+                        createStreetlight(blockCenterX + spacing / 2 - 10, blockCenterZ + spacing / 2 - 10);
+                        createStreetlight(blockCenterX - spacing / 2 + 10, blockCenterZ + spacing / 2 - 10);
+                        createParkedCarsInBlock(blockCenterX, blockCenterZ);
+                        continue;
+                    }
+
+
+                    // Ensure blocks are not on the highway or railway paths
+                    const highwayProximityX = Math.abs(blockCenterX);
+                    const highwayProximityZ = Math.abs(blockCenterZ - highwayZ);
+                    const railProximityZ = Math.abs(blockCenterZ - railZ);
+
+                    if ((highwayProximityX < 150 && highwayProximityZ < 50) || (railProximityZ < 50)) {
+                        createStreetlight(blockCenterX + spacing / 2 - 10, blockCenterZ + spacing / 2 - 10);
+                        createStreetlight(blockCenterX - spacing / 2 + 10, blockCenterZ + spacing / 2 - 10);
+                        createParkedCarsInBlock(blockCenterX, blockCenterZ);
+                        continue;
+                    }
+
+                    // Randomly decide if it's a park, cricket ground, mall, or a building area
+                    const rand = Math.random();
+                    const isCricketGround = rand < 0.03; // 3% chance for a cricket ground
+                    const isPark = rand >= 0.03 && rand < 0.10; // 7% chance for a park
+                    const isMall = rand >= 0.10 && rand < 0.25; // 15% chance for a mall
+
+                    if (isCricketGround) {
+                        createCricketGround(blockCenterX, blockCenterZ);
+                    } else if (isPark) {
+                        // Create a park area
+                        const parkGeometry = new THREE.PlaneGeometry(spacing - 20, spacing - 20); // Slightly smaller than block
+                        const park = new THREE.Mesh(parkGeometry, parkMaterial);
+                        park.rotation.x = -Math.PI / 2;
+                        park.position.set(blockCenterX, 0.2, blockCenterZ);
+                        park.receiveShadow = true;
+                        scene.add(park);
+                        monitorScene.add(park.clone());
+
+                        // Add some trees in the park
+                        const numTrees = Math.floor(Math.random() * 3) + 2; // 2-4 trees
+                        for (let t = 0; t < numTrees; t++) {
+                            const treeX = blockCenterX + (Math.random() - 0.5) * (spacing - 40);
+                            const treeZ = blockCenterZ + (Math.random() - 0.5) * (spacing - 40);
+                            createTree(treeX, treeZ);
+                        }
+                    } else if (isMall) {
+                        const mallWidth = Math.random() * 30 + 80; // Larger width
+                        const mallDepth = Math.random() * 30 + 80; // Larger depth
+                        const mallHeight = Math.random() * 10 + 30; // Shorter, wider building
+                        const color = mallColors[Math.floor(Math.random() * mallColors.length)];
+                        createMall(blockCenterX, blockCenterZ, mallWidth, mallDepth, mallHeight, color);
+                    } else {
+                        // Create buildings within this block
+                        const numBuildingsInBlock = Math.floor(Math.random() * 2) + 1; // 1-2 buildings per block
+                        for (let k = 0; k < numBuildingsInBlock; k++) {
+                            const width = Math.random() * 15 + 25; // 25-40
+                            const depth = Math.random() * 15 + 25; // 25-40
+                            const height = Math.random() * 60 + 40; // 40-100
+
+                            const offsetX = (Math.random() - 0.5) * (spacing - width - 20);
+                            const offsetZ = (Math.random() - 0.5) * (spacing - depth - 20);
+
+                            const x = blockCenterX + offsetX;
+                            const z = blockCenterZ + offsetZ;
+
+                            const color = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+                            createDetailedBuilding(x, z, width, depth, height, color);
+                        }
+                    }
+
+                    // Add streetlights along the road edges of this block
+                    createStreetlight(blockCenterX + spacing / 2 - 10, blockCenterZ + spacing / 2 - 10);
+                    createStreetlight(blockCenterX - spacing / 2 + 10, blockCenterZ + spacing / 2 - 10);
+
+                    // Add parked cars along roads within this block
+                    createParkedCarsInBlock(blockCenterX, blockCenterZ);
+                }
+            }
+        }
+
+
+        // Function to create the drone model (enhanced)
+        function createDrone() {
+            const droneGroup = new THREE.Group();
+
+            // Central body
+            // Reduced shininess and specular for drone
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x333333, specular: 0x444444, shininess: 15 });
+            const bodyGeometry = new THREE.BoxGeometry(10, 3, 10);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            droneGroup.add(body);
+
+            // Propeller arms (more defined)
+            const armMaterial = new THREE.MeshPhongMaterial({ color: 0x555555, specular: 0x666666, shininess: 10 });
+            const armGeometry = new THREE.BoxGeometry(25, 1.5, 2);
+            const arm1 = new THREE.Mesh(armGeometry, armMaterial);
+            arm1.rotation.y = Math.PI / 4;
+            arm1.castShadow = true;
+            arm1.receiveShadow = true;
+            droneGroup.add(arm1);
+
+            const arm2 = new THREE.Mesh(armGeometry, armMaterial);
+            arm2.rotation.y = -Math.PI / 4;
+            arm2.castShadow = true;
+            arm2.receiveShadow = true;
+            droneGroup.add(arm2);
+
+            // Propellers (simple cylinders with animation placeholder)
+            const propellerGeometry = new THREE.CylinderGeometry(2, 2, 0.5, 8);
+            const propellerMaterial = new THREE.MeshLambertMaterial({ color: 0x0a0a0a }); // Black
+
+            const propellerPositions = [
+                new THREE.Vector3(9, 2, 9),
+                new THREE.Vector3(-9, 2, 9),
+                new THREE.Vector3(9, 2, -9),
+                new THREE.Vector3(-9, 2, -9),
+            ];
+
+            propellerPositions.forEach(pos => {
+                const propeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
+                propeller.position.copy(pos);
+                propeller.castShadow = true;
+                propeller.receiveShadow = true;
+                droneGroup.add(propeller);
+            });
+
+            // Package
+            const packageGeometry = new THREE.BoxGeometry(7, 7, 7);
+            const packageMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 }); // Saddle brown
+            packageMesh = new THREE.Mesh(packageGeometry, packageMaterial);
+            packageMesh.position.y = -6; // Attach below the drone body
+            packageMesh.castShadow = true;
+            packageMesh.receiveShadow = true;
+            droneGroup.add(packageMesh);
+
+            scene.add(droneGroup);
+            // Don't add droneGroup.clone() to monitorScene here, it's handled in animate loop for real-time position update
+            return droneGroup;
+        }
+
+        // Function to create a simple skybox with a gradient
+        function createSkybox() {
+            const skyGeometry = new THREE.BoxGeometry(1500, 1500, 1500); // Larger skybox
+            const skyMaterial = [
+                new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide }), // Right
+                new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide }), // Left
+                new THREE.MeshBasicMaterial({ color: 0x6aaddf, side: THREE.BackSide }), // Top (darker blue)
+                new THREE.MeshBasicMaterial({ color: 0xa9d9ed, side: THREE.BackSide }), // Bottom (lighter blue)
+                new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide }), // Front
+                new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide })  // Back
+            ];
+            const skybox = new THREE.Mesh(skyGeometry, skyMaterial);
+            scene.add(skybox);
+            // No need to add skybox to monitorScene as its background is set directly.
+        }
+
+        // Define a more complex delivery path interacting with elevated highway and railway
+        function definePath() {
+            const droneAltitude = highwayHeight + 15; // Drone flies above highway
+
+            pathPoints.push(new THREE.Vector3(0, droneAltitude, 0)); // Start point (Central area)
+            // Points updated to consider new central store locations
+            pathPoints.push(new THREE.Vector3(walmartX, droneAltitude, walmartZ)); // Delivery to Walmart
+            pathPoints.push(new THREE.Vector3(walmartX, droneAltitude, walmartZ)); // Hold for delivery
+            pathPoints.push(new THREE.Vector3(saarthiX, droneAltitude, saarthiZ)); // Delivery to Saarthi Warehouse
+            pathPoints.push(new THREE.Vector3(saarthiX, droneAltitude, saarthiZ)); // Hold for delivery
+            pathPoints.push(new THREE.Vector3(0, droneAltitude, 0)); // Return to start
+        }
+
+        // Train path (simple loop)
+        const trainPathPoints = [
+            new THREE.Vector3(-(cityGridSize * spacing) / 2, 0.2, railZ),
+            new THREE.Vector3((cityGridSize * spacing) / 2, 0.2, railZ)
+        ];
+        let trainSpline = new THREE.CatmullRomCurve3(trainPathPoints, false); // Not a closed loop, will reverse
+        let trainDirection = 1; // 1 for forward, -1 for backward
+        const trainSpeed = 0.00002; // Decreased speed for train
+        let trainProgress = 0; // Current position on spline
+
+        function initTrains() {
+            const train = createTrain();
+            train.position.z = railZ; // Place on the tracks
+            scene.add(train);
+            trains.push(train);
+            monitorScene.add(train.clone());
+        }
+
+        // Function to check if a position collides with any building
+        function isCollidingWithBuilding(position, droneRadius = 5) {
+            const droneBoundingSphere = new THREE.Sphere(position, droneRadius);
+
+            for (const buildingBox of buildings) {
+                if (droneBoundingSphere.intersectsBox(buildingBox)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update drone position along the path
+            if (drone && pathPoints.length > 0) {
+                const targetPoint = pathPoints[pathIndex];
+                const direction = new THREE.Vector3().subVectors(targetPoint, drone.position);
+                const distance = direction.length();
+
+                if (distance > droneSpeed) {
+                    let currentStep = direction.clone().normalize().multiplyScalar(droneSpeed);
+                    let nextPosition = drone.position.clone().add(currentStep);
+
+                    // Simple obstacle avoidance
+                    if (isCollidingWithBuilding(nextPosition)) {
+                        // Try to sidestep
+                        const sidestepForce = 15; // How much to sidestep
+                        const upForce = 20; // How much to move up
+                        const avoidanceVector = new THREE.Vector3(currentStep.z, 0, -currentStep.x).normalize(); // Perpendicular to current direction
+                        
+                        let attemptedPosition = nextPosition.clone().add(avoidanceVector.clone().multiplyScalar(sidestepForce));
+
+                        if (!isCollidingWithBuilding(attemptedPosition)) {
+                            nextPosition.copy(attemptedPosition);
+                        } else {
+                            // If sidestep blocked, try opposite sidestep
+                            attemptedPosition = nextPosition.clone().sub(avoidanceVector.clone().multiplyScalar(sidestepForce));
+                            if (!isCollidingWithBuilding(attemptedPosition)) {
+                                nextPosition.copy(attemptedPosition);
+                            } else {
+                                // If both sidesteps blocked, try moving up
+                                attemptedPosition = nextPosition.clone().add(new THREE.Vector3(0, upForce, 0));
+                                if (!isCollidingWithBuilding(attemptedPosition)) {
+                                    nextPosition.copy(attemptedPosition);
+                                } else {
+                                    // Last resort: stop drone to prevent passing through
+                                    nextPosition.copy(drone.position);
+                                }
+                            }
+                        }
+                    }
+                    drone.position.copy(nextPosition);
+
+
+                    // Make drone look at the target (only rotate around Y axis for simplicity)
+                    const lookAtTarget = new THREE.Vector3(targetPoint.x, drone.position.y, targetPoint.z);
+                    drone.lookAt(lookAtTarget);
+
+                    // Rotate propellers for visual effect (simplified)
+                    drone.children.forEach(child => {
+                        if (child.geometry && child.geometry.type === 'CylinderGeometry') {
+                            child.rotation.y += 0.5; // Simulate spinning
+                        }
+                    });
+
+                } else {
+                    drone.position.copy(targetPoint);
+                    if (pathIndex % 2 !== 0 && pathIndex > 0) { // Check if it's a "delivery" point (odd indices after first point)
+                        // Simulate package drop by making it disappear
+                        if (packageMesh) {
+                            packageMesh.visible = false;
+                        }
+                    } else if (pathIndex === pathPoints.length - 1) {
+                         // Drone returned to base, reset package
+                        if (packageMesh) {
+                            packageMesh.visible = true;
+                        }
+                    }
+                    pathIndex = (pathIndex + 1) % pathPoints.length; // Move to next point
+                }
+            }
+
+            // Animate train
+            if (trains.length > 0) {
+                const train = trains[0]; // Assuming one train
+                trainProgress += trainSpeed * trainDirection;
+
+                if (trainProgress > 1) {
+                    trainProgress = 1;
+                    trainDirection = -1; // Reverse direction
+                } else if (trainProgress < 0) {
+                    trainProgress = 0;
+                    trainDirection = 1; // Reverse direction
+                }
+
+                const position = trainSpline.getPointAt(trainProgress);
+                train.position.copy(position);
+
+                const tangent = trainSpline.getTangentAt(trainProgress);
+                train.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tangent.normalize());
+                train.rotation.y += Math.PI / 2; // Adjust for train orientation
+            }
+
+            // Animate moving cars
+            movingCars.forEach(car => {
+                car.progress += car.speed * car.direction;
+
+                if (car.progress > 1) {
+                    car.progress = 1;
+                    car.direction = -1; // Reverse direction
+                } else if (car.progress < 0) {
+                    car.progress = 0;
+                    car.direction = 1; // Reverse direction
+                }
+
+                const position = car.path.getPointAt(car.progress);
+                car.mesh.position.copy(position);
+
+                // Make car look at the direction of movement
+                const tangent = car.path.getTangentAt(car.progress);
+                const lookAtTarget = new THREE.Vector3().addVectors(position, tangent); // Point slightly ahead
+                car.mesh.lookAt(lookAtTarget);
+                // Adjust rotation for car model's default forward direction if needed
+                car.mesh.rotation.y += Math.PI / 2; // Assuming model faces along +X by default
+            });
+
+
+            controls.update(); // Only required if controls.enableDamping or controls.autoRotate are set to true
+
+            // Render both scenes
+            renderer.render(scene, camera);
+            monitorRenderer.render(monitorScene, monitorCamera);
+        }
+
+        // Handle window resizing
+        function onWindowResize() {
+            // Main scene resize
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Monitor view resize
+            const monitorCanvas = document.getElementById('monitorCanvas');
+            monitorRenderer.setSize(monitorCanvas.clientWidth, monitorCanvas.clientHeight);
+            // Re-adjust orthographic camera bounds for accurate scaling if the container size changes
+            monitorCamera.left = -(monitorCanvas.clientWidth / monitorCanvas.clientHeight) * ((cityGridSize * spacing) / 2 + 200);
+            monitorCamera.right = (monitorCanvas.clientWidth / monitorCanvas.clientHeight) * ((cityGridSize * spacing) / 2 + 200);
+            monitorCamera.top = ((cityGridSize * spacing) / 2 + 200);
+            monitorCamera.bottom = -((cityGridSize * spacing) / 2 + 200);
+            monitorCamera.updateProjectionMatrix();
+        }
+
+        window.onload = function() {
+            initMainScene();
+            initMonitorView();
+            createSkybox();
+            createGroundAndRoads();
+            createRailway();
+            createElevatedHighway();
+            createCity(); // Creates buildings, parks, and now parked cars
+            drone = createDrone();
+            definePath(); // Define the drone's movement path
+            initTrains(); // Initialize trains
+
+            // Add some moving cars
+            const carColors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff]; // Red, Green, Blue, Yellow, Magenta, Cyan
+
+            // Car paths along horizontal roads
+            for (let i = -1; i <= 1; i++) { // For a few central horizontal roads
+                const roadOffset = i * spacing;
+                const pathSpeed = (Math.random() * 0.00005) + 0.00005; // Random speed
+                const carPath1 = [
+                    new THREE.Vector3(-(cityGridSize * spacing) / 2, 0.1, roadOffset - 5),
+                    new THREE.Vector3((cityGridSize * spacing) / 2, 0.1, roadOffset - 5)
+                ];
+                createMovingCar(carPath1, pathSpeed, carColors[Math.floor(Math.random() * carColors.length)]);
+
+                const carPath2 = [
+                    new THREE.Vector3((cityGridSize * spacing) / 2, 0.1, roadOffset + 5),
+                    new THREE.Vector3(-(cityGridSize * spacing) / 2, 0.1, roadOffset + 5)
+                ];
+                createMovingCar(carPath2, pathSpeed, carColors[Math.floor(Math.random() * carColors.length)]);
+            }
+
+            // Car paths along vertical roads
+            for (let i = -1; i <= 1; i++) { // For a few central vertical roads
+                const roadOffset = i * spacing;
+                const pathSpeed = (Math.random() * 0.00005) + 0.00005; // Random speed
+                const carPath1 = [
+                    new THREE.Vector3(roadOffset - 5, 0.1, -(cityGridSize * spacing) / 2),
+                    new THREE.Vector3(roadOffset - 5, 0.1, (cityGridSize * spacing) / 2)
+                ];
+                createMovingCar(carPath1, pathSpeed, carColors[Math.floor(Math.random() * carColors.length)]);
+
+                const carPath2 = [
+                    new THREE.Vector3(roadOffset + 5, 0.1, (cityGridSize * spacing) / 2),
+                    new THREE.Vector3(roadOffset + 5, 0.1, -(cityGridSize * spacing) / 2)
+                ];
+                createMovingCar(carPath2, pathSpeed, carColors[Math.floor(Math.random() * carColors.length)]);
+            }
+
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        };
+    </script>
+</body>
+</html>
