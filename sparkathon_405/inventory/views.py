@@ -594,6 +594,7 @@ def drone_positions_api(request):
                 d.current_lat = delivery.source_store.latitude
                 d.current_lng = delivery.source_store.longitude
                 d.save(update_fields=['current_lat', 'current_lng'])
+
             # Calculate max range in degrees (approx, for demo)
             max_range_km = (d.speed_kmph * d.max_flight_time_min) / 60  # km
             max_range_deg = max_range_km / 111.0  # 1 deg ~ 111km
@@ -623,8 +624,31 @@ def drone_positions_api(request):
             else:
                 target_lat, target_lng = route[0]
 
+            # --- Fetch weather for the drone's next position ---
+            weather = get_weather(d.current_lat, d.current_lng)
+            wind_speed = weather['wind_speed']
+            condition = weather['condition']
+
+            # Adjust drone speed for wind (simple: headwind reduces speed)
+            effective_speed = max(1, d.speed_kmph - wind_speed)  # never less than 1 km/h
+
+            # If wind_speed > 25 km/h or condition is 'Thunderstorm', trigger alert/crash
+            if wind_speed > 55 or condition in ['Thunderstorm', 'Extreme']:
+                alerts.append({
+                    'drones': [d.id],
+                    'message': f"🌪️ Severe weather! Wind: {wind_speed:.1f} km/h, Condition: {condition}. Drone #{d.id} crashed!"
+                })
+                d.status = 'crashed'
+                d.save(update_fields=['status'])
+                continue
+            elif wind_speed > 25 or condition in ['Rain', 'Snow']:
+                alerts.append({
+                    'drones': [d.id],
+                    'message': f"⚠️ Bad weather for Drone #{d.id}: Wind {wind_speed:.1f} km/h, Condition: {condition}."
+                })
+
             # Calculate distance to move (simulate speed per API call)
-            step_distance = 0.01  # degrees per API call (tune as needed)
+            step_distance = (effective_speed / 111) / 60  # degrees per API call (1 min step, 1 deg ~ 111km)
             distance_to_target = math.hypot(target_lat - d.current_lat, target_lng - d.current_lng)
             move_ratio = min(1, step_distance / distance_to_target) if distance_to_target > 0 else 1
             next_lat = d.current_lat + (target_lat - d.current_lat) * move_ratio
@@ -646,7 +670,8 @@ def drone_positions_api(request):
                     'message': f"💥 Drone #{d.id} has crashed due to battery depletion!"
                 })
                 continue
-# --- Reroute to nearest SmartDropPoint if battery < 20% and not already going there ---
+
+            # --- Reroute to nearest SmartDropPoint if battery < 20% and not already going there ---
             if battery_percent < 20:
                 nearest_sdp = get_nearest_point(d.current_lat, d.current_lng, smartdrops)
                 if nearest_sdp:
@@ -708,27 +733,39 @@ def drone_positions_api(request):
                 if nearest_sdp and nearest_store:
                     dist_sdp = math.hypot(next_lat - nearest_sdp.latitude, next_lng - nearest_sdp.longitude)
                     dist_store = math.hypot(next_lat - nearest_store.latitude, next_lng - nearest_store.longitude)
-                    if dist_sdp < dist_store:
+                    # Only create recharge delivery if NOT already at the point
+                    if dist_sdp > 0.01 and dist_sdp < dist_store:
                         d.current_lat = next_lat
                         d.current_lng = next_lng
                         d.status = 'in_flight'
                         d.save(update_fields=['current_lat', 'current_lng', 'status'])
                         d_route = [[next_lat, next_lng], [nearest_sdp.latitude, nearest_sdp.longitude]]
-                    else:
+                        d.deliveries.create(
+                            source_store=delivery.source_store,
+                            destination_lat=d_route[1][0],
+                            destination_lng=d_route[1][1],
+                            package_weight_kg=0,
+                            status='in_progress',
+                            route=d_route
+                        )
+                    elif dist_store > 0.01 and dist_store <= dist_sdp:
                         d.current_lat = next_lat
                         d.current_lng = next_lng
                         d.status = 'in_flight'
                         d.save(update_fields=['current_lat', 'current_lng', 'status'])
                         d_route = [[next_lat, next_lng], [nearest_store.latitude, nearest_store.longitude]]
-                    # Assign new route for recharge
-                    d.deliveries.create(
-                        source_store=nearest_store if dist_store < dist_sdp else delivery.source_store,
-                        destination_lat=d_route[1][0],
-                        destination_lng=d_route[1][1],
-                        package_weight_kg=0,
-                        status='in_progress',
-                        route=d_route
-                    )
+                        d.deliveries.create(
+                            source_store=delivery.source_store,
+                            destination_lat=d_route[1][0],
+                            destination_lng=d_route[1][1],
+                            package_weight_kg=0,
+                            status='in_progress',
+                            route=d_route
+                        )
+                    else:
+                        # Already at a SmartDrop/Store, just idle here!
+                        d.status = 'idle'
+                        d.save(update_fields=['status'])
 
         data.append({
             'id': d.id,
@@ -740,8 +777,14 @@ def drone_positions_api(request):
             'max_flight_time': d.max_flight_time_min,
             'status': d.get_status_display(),
             'route': delivery.route if delivery and delivery.route else [],
+            'weather': weather,
         })
     return JsonResponse({'drones': data, 'alerts': alerts})
+
+
+
+
+
 # 8. AI-based Re-routing (triggered by traffic or manual)
 def reroute_drone(request, delivery_id):
     delivery = get_object_or_404(Delivery, id=delivery_id)
@@ -779,3 +822,31 @@ def add_smartdrop(request):
         messages.success(request, "SmartDrop Point added!")
         return redirect('smartdrop_list')
     return render(request, 'drone/add_smartdrop.html', {'retailers': retailers})
+
+
+
+import requests
+
+OPENWEATHER_API_KEY = "98f719b0134ab093e0433373c6019e8a"
+
+def get_weather(lat, lng):
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather?"
+        f"lat={lat}&lon={lng}&appid={OPENWEATHER_API_KEY}&units=metric"
+    )
+    try:
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            data = resp.json()
+            wind_speed = data.get('wind', {}).get('speed', 0)  # m/s
+            wind_deg = data.get('wind', {}).get('deg', 0)
+            weather_main = data.get('weather', [{}])[0].get('main', '')
+            return {
+                'wind_speed': wind_speed * 3.6,  # convert m/s to km/h
+                'wind_deg': wind_deg,
+                'condition': weather_main
+            }
+    except Exception as e:
+        print("Weather API error:", e)
+    # fallback if API fails
+    return {'wind_speed': 0, 'wind_deg': 0, 'condition': 'Clear'}

@@ -6,40 +6,152 @@
     </div>
     <input id="nav-toggle" type="checkbox" class="saarthi-navbar-toggle" />
     <label for="nav-toggle" class="saarthi-navbar-hamburger">
-      <svg class="saarthi-navbar-hamburger-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+      <svg
+        class="saarthi-navbar-hamburger-icon"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M4 6h16M4 12h16M4 18h16"
+        />
       </svg>
     </label>
     <ul class="saarthi-navbar-list">
-      <li><a href="{% url 'dynamic_render' 'home' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-house"></i> Home</a></li>
-      <li><a href="{% url 'dynamic_render' 'admin' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-gauge-high"></i> Admin</a></li>
-      <li><a href="{% url 'dynamic_render' 'battery' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-battery-full"></i> Battery</a></li>
-      <li><a href="{% url 'dynamic_render' 'inventory' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-warehouse"></i> Inventory</a></li>
-      <li><a href="{% url 'dynamic_render' 'productlisting' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-list"></i> Products</a></li>
-      <li><a href="{% url 'dynamic_render' 'optimalwh' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-cubes"></i> LWH</a></li>
-      <li><a href="{% url 'dynamic_render' 'productlistdashboard' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-layer-group"></i> Dashboard</a></li>
-      <li><a href="{% url 'dynamic_render' 'multidrone_index' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-database"></i> Multi-Drone</a></li>
+      <li>
+        <a href="{% url 'dynamic_render' 'home' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-house"></i> Home</a
+        >
+      </li>
+      <li>
+        <a href="{% url 'dynamic_render' 'admin' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-gauge-high"></i> Admin</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'battery' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-battery-full"></i> Battery</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'inventory' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-warehouse"></i> Inventory</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'productlisting' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-list"></i> Products</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'optimalwh' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-cubes"></i> LWH</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'productlistdashboard' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-layer-group"></i> Dashboard</a
+        >
+      </li>
+      <li>
+        <a
+          href="{% url 'dynamic_render' 'multidrone_index' %}"
+          class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-database"></i> Multi-Drone</a
+        >
+      </li>
       <li class="saarthi-navbar-dropdown">
-        <button class="saarthi-navbar-btn saarthi-navbar-dropdown-btn"><i class="fa-solid fa-boxes-stacked"></i> Inventory Steps <svg class="saarthi-navbar-dropdown-arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+        <button class="saarthi-navbar-btn saarthi-navbar-dropdown-btn">
+          <i class="fa-solid fa-boxes-stacked"></i> Inventory Steps
+          <svg
+            class="saarthi-navbar-dropdown-arrow"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
         <ul class="saarthi-navbar-dropdown-list">
-          <li><a href="{% url 'dynamic_render' 'invent1' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 1</a></li>
-          <li><a href="{% url 'dynamic_render' 'invent2' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 2</a></li>
-          <li><a href="{% url 'dynamic_render' 'invent3' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 3</a></li>
-          <li><a href="{% url 'dynamic_render' 'invent4' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 4</a></li>
+          <li>
+            <a
+              href="{% url 'dynamic_render' 'invent1' %}"
+              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
+              >Step 1</a
+            >
+          </li>
+          <li>
+            <a
+              href="{% url 'dynamic_render' 'invent2' %}"
+              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
+              >Step 2</a
+            >
+          </li>
+          <li>
+            <a
+              href="{% url 'dynamic_render' 'invent3' %}"
+              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
+              >Step 3</a
+            >
+          </li>
+          <li>
+            <a
+              href="{% url 'dynamic_render' 'invent4' %}"
+              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
+              >Step 4</a
+            >
+          </li>
         </ul>
       </li>
-      <li><a href="{% url 'dynamic_render' 'index' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-clipboard-list"></i> Index</a></li>
-   
-   <li><a href="{% url 'store_list' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-store"></i> Stores</a></li>
-      <li><a href="{% url 'drone_list' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-helicopter"></i> Drones</a></li>
-      <li><a href="{% url 'delivery_list' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-truck"></i> Deliveries</a></li>
-      <li><a href="{% url 'live_tracking' %}" class="saarthi-navbar-btn"><i class="fa-solid fa-map-location-dot"></i> Live Tracking</a></li>
-   <li>
-  <a href="{% url 'smartdrop_list' %}" class="saarthi-navbar-btn">
-    <i class="fa-solid fa-charging-station"></i> SmartDrop Points
-  </a>
-</li>
-   
+      <li>
+        <a href="{% url 'dynamic_render' 'index' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-clipboard-list"></i> Index</a
+        >
+      </li>
+
+      <li>
+        <a href="{% url 'store_list' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-store"></i> Stores</a
+        >
+      </li>
+      <li>
+        <a href="{% url 'drone_list' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-helicopter"></i> Drones</a
+        >
+      </li>
+      <li>
+        <a href="{% url 'delivery_list' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-truck"></i> Deliveries</a
+        >
+      </li>
+      <li>
+        <a href="{% url 'live_tracking' %}" class="saarthi-navbar-btn"
+          ><i class="fa-solid fa-map-location-dot"></i> Live Tracking</a
+        >
+      </li>
+      <li>
+        <a href="{% url 'smartdrop_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-charging-station"></i> SmartDrop Points
+        </a>
+      </li>
     </ul>
   </nav>
   <style>
@@ -60,7 +172,7 @@
       margin: 0 auto 1.2rem auto !important;
       background: rgba(24, 28, 40, 0.98) !important;
       border-radius: 1.2rem !important;
-      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.45) !important;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45) !important;
       border: 2px solid #38bdf8 !important;
       display: flex !important;
       align-items: center !important;
@@ -126,15 +238,20 @@
       padding: 0.5rem 1rem !important;
       border-radius: 0.8rem !important;
       color: #fff !important;
-      background: linear-gradient(90deg, rgba(56,189,248,0.13) 0%, rgba(20,184,166,0.13) 100%) !important;
+      background: linear-gradient(
+        90deg,
+        rgba(56, 189, 248, 0.13) 0%,
+        rgba(20, 184, 166, 0.13) 100%
+      ) !important;
       transition: background 0.18s, color 0.18s, transform 0.18s !important;
       text-decoration: none !important;
-      box-shadow: 0 2px 8px 0 rgba(56,189,248,0.08) !important;
+      box-shadow: 0 2px 8px 0 rgba(56, 189, 248, 0.08) !important;
       border: none !important;
       margin: 0 0.08rem !important;
       white-space: nowrap !important;
     }
-    .saarthi-navbar-btn:hover, .saarthi-navbar-btn:focus {
+    .saarthi-navbar-btn:hover,
+    .saarthi-navbar-btn:focus {
       background: linear-gradient(90deg, #38bdf8 0%, #14b8a6 100%) !important;
       color: #fff !important;
       transform: translateY(-2px) scale(1.07) !important;
@@ -165,7 +282,7 @@
       left: 0 !important;
       background: #23293a !important;
       border-radius: 0.8rem !important;
-      box-shadow: 0 8px 32px 0 rgba(56,189,248,0.18) !important;
+      box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.18) !important;
       padding: 0.5rem 0.2rem !important;
       min-width: 160px !important;
       z-index: 99999 !important;
@@ -234,7 +351,7 @@
         margin-top: 0.5rem !important;
         transition: max-height 0.4s !important;
         min-height: 0 !important;
-        box-shadow: 0 8px 32px 0 rgba(56,189,248,0.18) !important;
+        box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.18) !important;
         position: static !important;
       }
       .saarthi-navbar-toggle:checked ~ .saarthi-navbar-list {
@@ -262,11 +379,23 @@
       }
     }
     @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px);}
-      to { opacity: 1; transform: translateY(0);}
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
   <!-- Font Awesome Kit for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <script src="https://kit.fontawesome.com/2b7e5c8e7b.js" crossorigin="anonymous"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+  />
+  <script
+    src="https://kit.fontawesome.com/2b7e5c8e7b.js"
+    crossorigin="anonymous"
+  ></script>
 </div>
