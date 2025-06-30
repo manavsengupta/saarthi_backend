@@ -423,32 +423,63 @@ def add_drone(request):
 # 3. Delivery Creation & Assignment
 def create_delivery(request):
     stores = Store.objects.all()
+    drones = Drone.objects.filter(status='idle')
+    persons = DeliveryPerson.objects.filter(status='active')
     if request.method == 'POST':
         source_store = get_object_or_404(Store, id=request.POST['source_store'])
         destination_lat = float(request.POST['destination_lat'])
         destination_lng = float(request.POST['destination_lng'])
         package_weight_kg = float(request.POST['package_weight_kg'])
-        # Find available drone (simple: first idle drone that can carry the weight)
-        drone = Drone.objects.filter(status='idle', max_weight_kg__gte=package_weight_kg).first()
-        if not drone:
-            messages.error(request, "No available drone for this weight!")
-            return render(request, 'drone/create_delivery.html', {'stores': stores})
-        # AI routing (placeholder)
-        route = get_best_route(source_store.latitude, source_store.longitude, destination_lat, destination_lng)
-        delivery = Delivery.objects.create(
-            drone=drone,
-            source_store=source_store,
-            destination_lat=destination_lat,
-            destination_lng=destination_lng,
-            package_weight_kg=package_weight_kg,
-            status='assigned',
-            route=route,
-        )
-        drone.status = 'assigned'
-        drone.save()
-        messages.success(request, f"Delivery #{delivery.id} created and drone assigned!")
-        return redirect('delivery_list')
-    return render(request, 'drone/create_delivery.html', {'stores': stores})
+
+        # Try to assign a drone first
+        drone = drones.filter(max_weight_kg__gte=package_weight_kg).first()
+        if drone:
+            route = get_best_route(source_store.latitude, source_store.longitude, destination_lat, destination_lng)
+            delivery = Delivery.objects.create(
+                drone=drone,
+                source_store=source_store,
+                destination_lat=destination_lat,
+                destination_lng=destination_lng,
+                package_weight_kg=package_weight_kg,
+                status='assigned',
+                route=route,
+                suggested_mode='drone'
+            )
+            drone.status = 'assigned'
+            drone.save()
+            messages.success(request, f"Delivery #{delivery.id} created and drone assigned!")
+            return redirect('delivery_list')
+        else:
+            # Assign to a delivery person if no drone is available
+            person = persons.first()
+            if person:
+                # Use Google Maps route for the person
+                route_info = get_route_info(
+                    (source_store.latitude, source_store.longitude),
+                    (destination_lat, destination_lng),
+                    mode='bicycling'
+                )
+                if route_info and 'polyline' in route_info:
+                    import polyline
+                    route = polyline.decode(route_info['polyline'])
+                else:
+                    route = [[source_store.latitude, source_store.longitude], [destination_lat, destination_lng]]
+                delivery = Delivery.objects.create(
+                    assigned_to=person,
+                    source_store=source_store,
+                    destination_lat=destination_lat,
+                    destination_lng=destination_lng,
+                    package_weight_kg=package_weight_kg,
+                    status='assigned',
+                    route=route,
+                    suggested_mode='biker'
+                )
+                messages.success(request, f"Delivery #{delivery.id} created and assigned to {person.name}!")
+                return redirect('delivery_list')
+            else:
+                messages.error(request, "No available drone or delivery person for this delivery!")
+                return render(request, 'drone/create_delivery.html', {'stores': stores, 'drones': drones, 'persons': persons})
+    return render(request, 'drone/create_delivery.html', {'stores': stores, 'drones': drones, 'persons': persons})
 
 # 4. Deploy Drone (after checks)
 def deploy_drone(request, delivery_id):
@@ -474,9 +505,30 @@ def deploy_drone(request, delivery_id):
 # 5. Delivery List Page
 def delivery_list(request):
     deliveries = Delivery.objects.all().order_by('-id')
-    return render(request, 'drone/delivery_list.html', {'deliveries': deliveries})
+    drones = Drone.objects.filter(status='idle')
+    persons = DeliveryPerson.objects.filter(status='active')
+    return render(request, 'drone/delivery_list.html', {
+        'deliveries': deliveries,
+        'drones': drones,
+        'persons': persons,
+    })
 import heapq
-
+def deploy_person(request, delivery_id):
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    person = delivery.assigned_to
+    if not person:
+        messages.error(request, "No delivery person assigned!")
+        return redirect('delivery_detail', delivery_id=delivery.id)
+    if delivery.status != 'assigned':
+        messages.error(request, "Delivery is not in assigned state!")
+        return redirect('delivery_detail', delivery_id=delivery.id)
+    delivery.status = 'in_progress'
+    delivery.started_at = timezone.now()
+    delivery.save()
+    person.status = 'active'  # Optionally set to 'on_delivery' if you have such a status
+    person.save()
+    messages.success(request, f"Delivery started for {person.name}!")
+    return redirect('delivery_detail', delivery_id=delivery.id)
 def find_smartdrop_route(source, destination, smartdrops, max_range_km):
     """
     Returns a list of waypoints: [source, smartdrop1, ..., destination]
@@ -518,12 +570,16 @@ def live_tracking(request):
     deliveries = Delivery.objects.filter(status__in=['assigned', 'in_progress'])
     stores = Store.objects.all()
     smartdrops = SmartDropPoint.objects.all()  # <-- Add this line
+    persons = DeliveryPerson.objects.filter(status='active')  # Add this line
 
     return render(request, 'drone/live_tracking.html', {
         'drones': drones,
         'deliveries': deliveries,
         'stores': stores,
-         'smartdrops': smartdrops,  }) 
+        'smartdrops': smartdrops, 
+        'persons': persons,  # Pass to template
+
+           }) 
 
 
 import random
@@ -850,3 +906,319 @@ def get_weather(lat, lng):
         print("Weather API error:", e)
     # fallback if API fails
     return {'wind_speed': 0, 'wind_deg': 0, 'condition': 'Clear'}
+def move_bikers(alerts=None):
+    deliveries = Delivery.objects.filter(status='in_progress', assigned_to__isnull=False)
+    for delivery in deliveries:
+        person = delivery.assigned_to
+        route = delivery.route
+        if not route or len(route) < 2:
+            delivery.route = get_best_route(
+                delivery.source_store.latitude, delivery.source_store.longitude,
+                delivery.destination_lat, delivery.destination_lng
+            )
+            delivery.save()
+            route = delivery.route
+        risk_index = predict_accident_risk(person)
+        if risk_index == "High" and alerts is not None:
+            alerts.append({'type': 'risk', 'message': f"⚠️ Rash driving detected for {person.name}! May cause potential crash."})
+        # --- Manual accident simulation ---
+        if getattr(person, 'mimic_accident', False):
+            if not hasattr(person, '_accident_start') or person._accident_start is None:
+                person.accel = -10
+                person.velocity = 1
+                person._accident_start = timezone.now()
+                if not person.accident_flag:
+                    person.accident_flag = True
+                    person.accident_time = person._accident_start
+                person.save(update_fields=['accel', 'velocity', 'mimic_accident', 'accident_flag', 'accident_time'])
+            elif (timezone.now() - person._accident_start).total_seconds() < 60:
+                person.accel = 0
+                person.velocity = 0
+                person.save(update_fields=['accel', 'velocity'])
+            else:
+                person.mimic_accident = False
+                person._accident_start = None
+                person.accel = 0
+                person.velocity = 0
+                person.save(update_fields=['accel', 'velocity', 'mimic_accident'])
+            # Always check accident detection logic
+            person.current_delivery = delivery
+            if detect_accident(person):
+                delivery.status = 'failed'
+                delivery.save(update_fields=['status'])
+                if alerts is not None:
+                    alerts.append({'type': 'accident', 'message': f"🚨 Suspected accident for {person.name}! Delivery #{delivery.id} will be reassigned."})
+                reroute_delivery_on_accident(delivery)
+            continue
+
+        # --- Normal simulation ---
+        import random
+        person.velocity = round(random.uniform(5, 12), 2)
+        person.accel = round(random.uniform(-2, 2), 2)
+
+        # --- Rash driving alert ---
+        risk_index = predict_accident_risk(person)
+        if risk_index == "High" and alerts is not None:
+            alerts.append({'type': 'risk', 'message': f"⚠️ Rash driving detected for {person.name}! May cause potential crash."})
+
+        # --- Accident detection ---
+        person.current_delivery = delivery
+        if detect_accident(person):
+            delivery.status = 'failed'
+            delivery.save(update_fields=['status'])
+            if alerts is not None:
+                alerts.append({'type': 'accident', 'message': f"🚨 Suspected accident for {person.name}! Delivery #{delivery.id} will be reassigned."})
+            reroute_delivery_on_accident(delivery)
+            continue
+
+        # --- Waypoint movement code (unchanged) ---
+        if person.current_lat is None or person.current_lng is None:
+            person.current_lat, person.current_lng = route[0]
+            person.save(update_fields=['current_lat', 'current_lng'])
+        step = 40 / 111 / 60
+        for i in range(len(route)-1):
+            lat1, lng1 = route[i]
+            lat2, lng2 = route[i+1]
+            if abs(person.current_lat - lat2) > 1e-4 or abs(person.current_lng - lng2) > 1e-4:
+                break
+        else:
+            delivery.status = 'delivered'
+            delivery.save(update_fields=['status'])
+            person.status = 'active'
+            person.save(update_fields=['status'])
+            continue
+        dx = lat2 - person.current_lat
+        dy = lng2 - person.current_lng
+        dist = (dx**2 + dy**2) ** 0.5
+        if dist < step:
+            person.current_lat, person.current_lng = lat2, lng2
+        else:
+            ratio = step / dist
+            person.current_lat += dx * ratio
+            person.current_lng += dy * ratio
+        person.save(update_fields=['current_lat', 'current_lng', 'velocity', 'accel'])
+
+def detect_accident(person):
+    now = timezone.now()
+    # 1. Detect hard deceleration and low velocity: start suspect timer
+    if person.accel < -8 and person.velocity < 2 and not person.accident_flag:
+        person.accident_flag = True
+        person.accident_time = now
+        person.save(update_fields=['accident_flag', 'accident_time'])
+        return False  # Not yet confirmed
+
+    # 2. If already flagged, check if velocity remains low for 1 min (or 10s for demo)
+    if person.accident_flag:
+        if person.velocity < 2 and person.accident_time and (now - person.accident_time).total_seconds() > 60:
+            # Confirmed accident
+            AccidentEvent.objects.create(
+                delivery=getattr(person, 'current_delivery', None),
+                person=person,
+                timestamp=now,
+                details="Detected hard deceleration and 1 min zero velocity"
+            )
+            person.status = 'accident'
+            person.accident_flag = False
+            person.accident_time = None
+            person.save(update_fields=['status', 'accident_flag', 'accident_time'])
+            return True
+        # If moving again, reset
+        elif person.velocity > 2:
+            person.accident_flag = False
+            person.accident_time = None
+            person.save(update_fields=['accident_flag', 'accident_time'])
+    return False
+
+
+import requests
+from django.http import JsonResponse
+from django.utils import timezone
+from .models import Delivery, DeliveryPerson, Drone, AccidentEvent
+def delivery_person_positions_api(request):
+    alerts = []
+    move_bikers(alerts)
+    # Get all persons who have an in-progress delivery or are in accident state
+    in_progress_deliveries = Delivery.objects.filter(status='in_progress', assigned_to__isnull=False)
+    accident_persons = DeliveryPerson.objects.filter(status='accident')
+    person_ids = list(in_progress_deliveries.values_list('assigned_to', flat=True)) + list(accident_persons.values_list('id', flat=True))
+    persons = DeliveryPerson.objects.filter(id__in=person_ids).distinct()
+    data = []
+    for p in persons:
+        delivery = Delivery.objects.filter(assigned_to=p, status='in_progress').first()
+        route = delivery.route if delivery and delivery.route else []
+        risk_index = predict_accident_risk(p)
+        data.append({
+            'id': p.id,
+            'name': p.name,
+            'lat': p.current_lat,
+            'lng': p.current_lng,
+            'velocity': p.velocity,
+            'accel': p.accel,
+            'status': p.status,
+            'route': route,
+            'risk_index': risk_index,
+        })
+    return JsonResponse({'persons': data, 'alerts': alerts})
+def detect_accident(person):
+    now = timezone.now()
+    # 1. Detect hard deceleration and low velocity: start suspect timer
+    if person.accel < -8 and person.velocity < 2:
+        if not person.accident_flag:
+            person.accident_flag = True
+            person.accident_time = now
+            person.save(update_fields=['accident_flag', 'accident_time'])
+        # Do NOT return here, let the next block check for confirmation
+
+    # 2. If already flagged, check if velocity remains low for 1 min (or 10s for demo)
+    if person.accident_flag:
+        if person.velocity < 2 and person.accident_time and (now - person.accident_time).total_seconds() > 5:
+            # Confirmed accident
+            print("Confirmed accident for person:", person.id)
+            AccidentEvent.objects.create(
+                delivery=getattr(person, 'current_delivery', None),
+                person=person,
+                timestamp=now,
+                details="Detected hard deceleration and 1 min zero velocity"
+            )
+
+            print("heeeee")
+            person.status = 'accident'
+            person.accident_flag = False
+            person.accident_time = None
+            person.save(update_fields=['status', 'accident_flag', 'accident_time'])
+            return True
+        # If moving again, reset
+        elif person.velocity > 2:
+            person.accident_flag = False
+            person.accident_time = None
+            person.save(update_fields=['accident_flag', 'accident_time'])
+    return False
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt  # Only if you have issues with CSRF in AJAX, otherwise remove this
+def assign_delivery(request, delivery_id):
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    if request.method == 'POST':
+        assigned_to = request.POST.get('assigned_to')
+        if assigned_to:
+            if assigned_to.startswith('drone-'):
+                drone_id = int(assigned_to.split('-')[1])
+                drone = Drone.objects.get(id=drone_id)
+                delivery.drone = drone
+                delivery.assigned_to = None
+                delivery.suggested_mode = 'drone'
+                drone.status = 'assigned'
+                drone.save()
+            elif assigned_to.startswith('person-'):
+                person_id = int(assigned_to.split('-')[1])
+                person = DeliveryPerson.objects.get(id=person_id)
+                delivery.assigned_to = person
+                delivery.drone = None
+                delivery.suggested_mode = 'biker'
+            delivery.save()
+            messages.success(request, "Delivery assignment updated!")
+        else:
+            messages.error(request, "No resource selected for assignment.")
+    return redirect('delivery_list')
+global count
+count=0
+# 4. Get best route (Google Maps or OSRM API)
+def get_route_info(origin, dest, mode='bicycling'):
+    global count
+    print(count)
+    if(count<1000):
+        if mode == 'drone':
+            # Straight line for drone
+            import math
+            lat1, lng1 = origin
+            lat2, lng2 = dest
+            distance = math.hypot(lat2 - lat1, lng2 - lng1) * 111000  # rough meters
+            duration = distance / 35000  # 35km/h drone
+            return {'distance': distance, 'duration': duration}
+        else:
+            # Google Maps Directions API (replace with your API key)
+            api_key = 'AIzaSyBm9rEixEaoOLdq2yUEVkxKLeJ6zYPH0p4'
+            url = (
+                f"https://maps.googleapis.com/maps/api/directions/json?"
+                f"origin={origin[0]},{origin[1]}&destination={dest[0]},{dest[1]}"
+                f"&mode={mode}&key={api_key}"
+            )
+            resp = requests.get(url)
+            count+=1
+            if resp.status_code == 200:
+                data = resp.json()
+                if data['routes']:
+                    leg = data['routes'][0]['legs'][0]
+                    return {
+                        'distance': leg['distance']['value'],
+                        'duration': leg['duration']['value'],
+                        'polyline': data['routes'][0]['overview_polyline']['points']
+                    }
+        return None
+
+# 5. Reroute delivery to another person if accident detected
+def reroute_delivery_on_accident(delivery):
+    # Find another available person
+    new_person = DeliveryPerson.objects.filter(status='active').exclude(id=delivery.assigned_to.id).first()
+    if new_person:
+        delivery.assigned_to = new_person
+        delivery.status = 'in_progress'  # <-- Ensure status is correct for new person
+        delivery.save()
+        # Optionally notify new_person
+        return True
+    return False
+
+# 6. (Optional) Analytics: Predict accident risk (out-of-box idea)
+def predict_accident_risk(person):
+    # Example: Use last N accelerometer/velocity readings
+    # (You can expand this with ML or heuristics)
+    if abs(person.accel) > 7 or person.velocity > 45:
+        return "High"
+    elif abs(person.accel) > 4:
+        return "Medium"
+    else:
+        return "Low"
+    
+def accident_alerts(request):
+    accidents = AccidentEvent.objects.select_related('person', 'delivery').order_by('-timestamp')
+    return render(request, 'drone/accident_alerts.html', {'accidents': accidents})
+
+
+from .models import DeliveryPerson
+
+def person_list(request):
+    persons = DeliveryPerson.objects.all()
+    return render(request, 'drone/person_list.html', {'persons': persons})
+
+def add_person(request):
+    if request.method == 'POST':
+        name = request.POST['name']
+        DeliveryPerson.objects.create(name=name)
+        messages.success(request, "Delivery person added!")
+        return redirect('person_list')
+    return render(request, 'drone/add_person.html')
+
+def person_detail(request, person_id):
+    person = get_object_or_404(DeliveryPerson, id=person_id)
+    return render(request, 'drone/person_detail.html', {'person': person})
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import random
+@csrf_exempt
+def mimic_accident_api(request):
+    from .models import DeliveryPerson, Delivery
+    persons = list(DeliveryPerson.objects.filter(status='active'))
+    random.shuffle(persons)
+    for p in persons:
+        delivery = Delivery.objects.filter(assigned_to=p, status='in_progress').first()
+        if delivery:
+            p.mimic_accident = True
+            p.save(update_fields=['mimic_accident'])
+            return JsonResponse({
+                'alerts': [],
+                'message': f"Accident condition triggered for {p.name}!"
+            })
+    return JsonResponse({'alerts': [], 'message': "No active biker with in-progress delivery found."})

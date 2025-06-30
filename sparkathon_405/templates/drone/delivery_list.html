@@ -1,3 +1,4 @@
+<!-- filepath: c:\Users\manav\OneDrive\Desktop\Sparkathon\sparkathon_405\templates\drone\delivery_list.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -85,6 +86,11 @@
             padding: 0.5em 1em;
             border-radius: 1em;
         }
+        .assign-form {
+            display: flex;
+            gap: 0.5em;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -107,6 +113,9 @@
                             <th>Started</th>
                             <th>Completed</th>
                             <th>Status</th>
+                            <th>Suggested Mode</th>
+                            <th>Route</th>
+                            <th>Assign</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -158,10 +167,60 @@
                                 </span>
                             </td>
                             <td>
+                                {% if delivery.suggested_mode == 'drone' %}
+                                    <span class="badge bg-primary"><i class="fa-solid fa-helicopter"></i> Drone</span>
+                                {% elif delivery.suggested_mode == 'biker' %}
+                                    <span class="badge bg-danger"><i class="fa-solid fa-person-biking"></i> Biker</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if delivery.route_info %}
+                                    <span class="badge bg-info text-dark">
+                                        {{ delivery.route_info.distance|floatformat:0 }} m /
+                                        {{ delivery.route_info.duration|floatformat:0 }} sec
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if delivery.status == 'assigned' %}
+                                    <form method="post" action="{% url 'assign_delivery' delivery.id %}" class="assign-form">
+                                        {% csrf_token %}
+                                        <select name="assigned_to" class="form-select form-select-sm" required>
+                                           {% if drones %}
+    {% for drone in drones %}
+        <option value="drone-{{ drone.id }}">{{ drone.name }} (Drone)</option>
+    {% endfor %}
+{% endif %}
+{% if persons %}
+    {% for person in persons %}
+        <option value="person-{{ person.id }}">{{ person.name }} (Person)</option>
+    {% endfor %}
+{% endif %}
+{% if not drones and not persons %}
+    <option value="">No available resource</option>
+{% endif %}
+                                        </select>
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fa-solid fa-check"></i> Assign
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 <a href="{% url 'delivery_detail' delivery.id %}" class="btn btn-info btn-sm mb-1"><i class="fa-solid fa-circle-info"></i> Details</a>
                                 {% if delivery.status == 'assigned' %}
-                                    <a href="{% url 'deploy_drone' delivery.id %}" class="btn btn-primary btn-sm mb-1"><i class="fa-solid fa-paper-plane"></i> Deploy</a>
-                                {% endif %}
+    {% if delivery.drone %}
+        <a href="{% url 'deploy_drone' delivery.id %}" class="btn btn-primary btn-sm mb-1"><i class="fa-solid fa-paper-plane"></i> Deploy</a>
+    {% elif delivery.assigned_to %}
+        <a href="{% url 'deploy_person' delivery.id %}" class="btn btn-primary btn-sm mb-1"><i class="fa-solid fa-person-biking"></i> Deploy</a>
+    {% endif %}
+{% endif %}
                                 {% if delivery.status == 'in_progress' %}
                                     <a href="{% url 'reroute_drone' delivery.id %}" class="btn btn-warning btn-sm mb-1"><i class="fa-solid fa-route"></i> Re-route</a>
                                 {% endif %}
@@ -169,7 +228,7 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">No deliveries found.</td>
+                            <td colspan="12" class="text-center text-muted py-4">No deliveries found.</td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -177,6 +236,6 @@
             </div>
         </div>
     </div>
-    {% include "navbar.html" %}]
-    </body>
+    {% include "navbar.html" %}
+</body>
 </html>

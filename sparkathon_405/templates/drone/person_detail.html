@@ -1,0 +1,27 @@
+<!-- filepath: c:\Users\manav\OneDrive\Desktop\Sparkathon\sparkathon_405\templates\drone\person_detail.html -->
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delivery Person Profile</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+</head>
+<body class="container py-4">
+    <h2 class="mb-4"><i class="fa-solid fa-person-biking text-danger"></i> {{ person.name }}</h2>
+    <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Status:</b> {{ person.get_status_display }}</li>
+        <li class="list-group-item"><b>Current Location:</b>
+            {% if person.current_lat and person.current_lng %}
+                ({{ person.current_lat|floatformat:4 }}, {{ person.current_lng|floatformat:4 }})
+            {% else %}
+                <span class="text-muted">Unknown</span>
+            {% endif %}
+        </li>
+        <li class="list-group-item"><b>Velocity:</b> {{ person.velocity }} m/s</li>
+        <li class="list-group-item"><b>Acceleration:</b> {{ person.accel }} m/s²</li>
+        <li class="list-group-item"><b>Last Update:</b> {{ person.last_update }}</li>
+    </ul>
+    <a href="{% url 'person_list' %}" class="btn btn-secondary">Back to List</a>
+    {% include "navbar.html" %}
+</body>
+</html>

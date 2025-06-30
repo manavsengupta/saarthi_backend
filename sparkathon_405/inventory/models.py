@@ -49,7 +49,25 @@ class ProductAnalytics(models.Model):
     
 
 from django.db import models
-
+class DeliveryPerson(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('accident', 'Accident'),
+        ('offline', 'Offline'),
+    ]
+    name = models.CharField(max_length=100)
+    current_lat = models.FloatField(null=True, blank=True)
+    current_lng = models.FloatField(null=True, blank=True)
+    velocity = models.FloatField(default=0)  # m/s
+    accel = models.FloatField(default=0)     # m/s^2
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    last_update = models.DateTimeField(auto_now=True)
+    mimic_accident = models.BooleanField(default=False)  # <-- Add this line
+    accident_flag = models.BooleanField(default=False)
+    accident_time = models.DateTimeField(null=True, blank=True)
+    def __str__(self):
+        return self.name
 class Store(models.Model):
     name = models.CharField(max_length=100)
     address = models.TextField(blank=True)
@@ -104,7 +122,15 @@ class Delivery(models.Model):
     estimated_time_min = models.FloatField(null=True, blank=True)
     actual_time_min = models.FloatField(null=True, blank=True)
     notes = models.TextField(blank=True)
-
+    assigned_to = models.ForeignKey('DeliveryPerson', on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')  # NEW
+    mode = models.CharField(max_length=20, choices=[('drone', 'Drone'), ('biker', 'Biker')], default='biker')  # NEW
+    suggested_mode = models.CharField(
+        max_length=20,
+        choices=[('drone', 'Drone'), ('biker', 'Biker')],
+        default='biker'
+    )
+    
+    
     def __str__(self):
         return f"Delivery #{self.id} ({self.get_status_display()})"
 
@@ -131,3 +157,13 @@ class SmartDropPoint(models.Model):
 
     def __str__(self):
         return self.name
+    
+class AccidentEvent(models.Model):
+    delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, related_name='accidents')
+    person = models.ForeignKey(DeliveryPerson, on_delete=models.CASCADE, related_name='accidents')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Accident for {self.person.name} at {self.timestamp}"
+    
