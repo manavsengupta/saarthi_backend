@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Delivery Truck Load Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Three.js library for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for camera rotation, zoom, and pan -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- DragControls for dragging 3D objects -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/DragControls.js"></script>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Basic body styling to ensure full height and flexible layout */
+        body {
+            margin: 0;
+            overflow: auto; /* Changed from hidden to auto to allow scrolling on small screens */
+            font-family: 'Inter', sans-serif; /* Recommended font */
+            display: flex; /* Use flexbox for main layout */
+            height: 100vh; /* Full viewport height */
+            background-color: #f0f2f5; /* Light background color */
+            flex-direction: row; /* Default for desktop */
+        }
+
+        /* Container for the Three.js canvas */
+        #truck-container {
+            flex-grow: 1; /* Allows container to take available space */
+            position: relative; /* For tooltip positioning */
+            overflow: hidden; /* Hide any overflow from canvas */
+            background-color: #e0e6ed; /* Slightly darker background for the 3D area */
+            border-radius: 10px; /* Rounded corners */
+            margin: 20px; /* Spacing from edges */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); /* Subtle shadow */
+            height: calc(100vh - 40px); /* Adjust height for margin on desktop */
+        }
+
+        /* Canvas styling to ensure it fills its container */
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Styling for the control panel - Matched to the provided image */
+        #control-panel {
+            width: 400px; /* Adjusted width to match image proportions */
+            padding: 25px 30px; /* Padding to match spacing in the image */
+            background: radial-gradient(circle at top left, #2f3a47, #1a202c); /* Radial gradient from image */
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5); /* Deeper shadow */
+            border-radius: 15px; /* Rounded corners */
+            margin: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px; /* Space between sections */
+            color: #e2e8f0; /* Light text color for contrast */
+            border: none; /* No visible border for the main panel */
+            flex-shrink: 0; /* Prevent shrinking on desktop */
+        }
+
+        /* Styling for individual sections within the control panel */
+        .panel-section {
+            border: none; /* No border for sections in this design */
+            border-radius: 0; /* No rounded corners for sections */
+            padding: 0; /* No padding for sections, handled by direct elements */
+            background-color: transparent; /* Transparent background */
+            box-shadow: none; /* No inner shadow */
+            margin-bottom: 20px; /* Spacing between sections */
+        }
+
+        /* Main heading (Add Parcel) - Styled exactly like the image */
+        #add-parcel-main-title {
+            font-family: 'Inter', sans-serif; /* Use Inter */
+            font-size: 2.5rem; /* Large font size */
+            font-weight: 800; /* Extra bold */
+            color: #63b3ed; /* Light blue/cyan color */
+            text-shadow: 0 0 10px rgba(99, 179, 237, 0.6), 0 0 20px rgba(99, 179, 237, 0.4), 0 0 30px rgba(99, 179, 237, 0.2); /* Glowing effect */
+            margin-bottom: 25px; /* Space below title */
+            line-height: 1; /* Tighter line height */
+            padding-left: 5px; /* Slight indent like image */
+        }
+
+        /* Sub-headings (like Priority Colors) */
+        .panel-section h3 {
+            font-size: 1.2rem; /* Slightly smaller than main title */
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #a0aec0; /* Lighter grey text */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2); /* Subtle text shadow */
+        }
+
+        /* Form group styling */
+        .form-group {
+            margin-bottom: 20px; /* More space between form groups */
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.95rem; /* Smaller label font */
+            color: #a0aec0; /* Lighter grey */
+            margin-bottom: 10px; /* Space below label */
+            font-weight: 500;
+            padding-left: 5px; /* Consistent indent */
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px; /* More padding */
+            border: 1px solid #4a5568; /* Darker border */
+            border-radius: 8px; /* Rounded corners */
+            font-size: 1rem;
+            box-sizing: border-box;
+            background-color: #2d3748; /* Dark background for inputs */
+            color: #f0f2f5; /* Light text color */
+            transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
+            -webkit-appearance: none; /* Remove default appearance for selects */
+            -moz-appearance: none;
+            appearance: none;
+            box-shadow: inset /* Changed to inset */ 0 2px 5px rgba(0,0,0,0.2); /* Inner shadow for inputs */
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #63b3ed; /* Light blue border on focus */
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3), 0 0 0 3px rgba(99, 179, 237, 0.4), 0 0 15px rgba(99, 179, 237, 0.6); /* Vibrant glow on focus */
+            background-color: #222c3c; /* Slightly darker on focus */
+        }
+
+        /* Button styling - Matched to image design */
+        .btn {
+            padding: 15px 20px; /* Generous padding */
+            border-radius: 10px; /* Rounded corners */
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.8px; /* Slightly more spaced letters */
+            text-transform: none; /* No uppercase */
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Default button shadow */
+            display: flex; /* Flexbox for icon and text alignment */
+            align-items: center;
+            justify-content: center;
+            gap: 10px; /* Space between icon and text */
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #5EEAD4, #48D1CC); /* Light Blue/Cyan gradient from image */
+            color: #1a202c; /* Dark text for contrast */
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(94, 234, 212, 0.7); /* Enhanced shadow and glow */
+        }
+
+        .btn-danger {
+            background: linear-gradient(90deg, #F87171, #EF4444); /* Red/Orange gradient */
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(248, 113, 113, 0.7); /* Enhanced shadow and glow */
+        }
+
+        .btn-secondary {
+            background: linear-gradient(90deg, #607d8b, #455a64); /* Darker grey gradient for consistency */
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(96, 125, 139, 0.7);
+        }
+
+
+        /* Tooltip styling (UPDATED for faster transition) */
+        #tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.85); /* Slightly darker for better contrast */
+            color: white;
+            padding: 10px 15px; /* Slightly more padding */
+            border-radius: 8px; /* More rounded */
+            font-size: 0.9rem; /* Slightly larger font */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.05s; /* Made faster: was 0.2s, now 0.05s */
+            z-index: 1000;
+            border: 1px solid rgba(255,255,255,0.2); /* Subtle border */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Shadow for tooltip */
+        }
+
+        #tooltip.visible {
+            opacity: 1;
+        }
+
+        /* Color legend styling - Matched to image */
+        .color-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* More space between items */
+        }
+
+        .color-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem; /* Smaller font size */
+            color: #a0aec0; /* Light grey text */
+        }
+
+        .color-box {
+            width: 18px; /* Slightly smaller box */
+            height: 18px; /* Slightly smaller box */
+            border-radius: 4px; /* Less rounded */
+            margin-right: 12px; /* More space */
+            border: none; /* No border for these boxes in image */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Subtle shadow for color boxes */
+        }
+
+        /* Specific color box backgrounds - Adjusted to match image's implied colors */
+        .color-box.high-priority { background-color: #E74C3C; /* Red */ }
+        .color-box.medium-priority { background-color: #F39C12; /* Orange */ }
+        .color-box.low-priority { background-color: #1ABC9C; /* Cyan */ }
+
+        /* General styles for other sections to match the dark theme */
+        .panel-section p {
+            color: #a0aec0; /* Light grey text */
+            font-size: 0.9rem;
+        }
+
+        /* Ensure input focus does not change the background to white */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* --- Mobile Responsiveness (max-width: 768px) --- */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column; /* Stack 3D view and control panel vertically */
+                height: auto; /* Allow content to dictate height */
+                min-height: 100vh; /* Ensure it takes at least full viewport height */
+            }
+
+            #truck-container {
+                margin: 10px; /* Reduce margin */
+                height: 50vh; /* Allocate half screen height for 3D view */
+                flex-shrink: 0; /* Prevent shrinking when control panel is large */
+                border-radius: 8px;
+            }
+
+            #control-panel {
+                width: auto; /* Allow control panel to take full width */
+                margin: 10px; /* Reduce margin */
+                padding: 15px 20px; /* Adjust padding */
+                border-radius: 10px;
+                gap: 15px; /* Reduce gap between sections */
+                flex-shrink: 1; /* Allow shrinking if content overflows */
+            }
+
+            #add-parcel-main-title {
+                font-size: 2rem; /* Smaller title on mobile */
+                margin-bottom: 20px;
+            }
+
+            .panel-section {
+                margin-bottom: 15px; /* Reduce space between sections */
+            }
+
+            .panel-section h3 {
+                font-size: 1.1rem; /* Smaller sub-headings */
+                margin-bottom: 10px;
+            }
+
+            .form-group {
+                margin-bottom: 15px; /* Reduce space between form groups */
+            }
+
+            .form-group label {
+                font-size: 0.9rem; /* Smaller labels */
+                margin-bottom: 8px;
+            }
+
+            .form-group input,
+            .form-group select,
+            .btn {
+                padding: 10px 12px; /* Smaller padding for inputs and buttons */
+                font-size: 0.9rem; /* Smaller font for inputs and buttons */
+            }
+
+            .btn {
+                gap: 8px; /* Smaller gap for icons in buttons */
+            }
+
+            .color-legend {
+                gap: 8px; /* Smaller gap in color legend */
+            }
+
+            .color-item {
+                font-size: 0.85rem; /* Smaller font in color legend */
+            }
+
+            .color-box {
+                width: 16px; /* Smaller color boxes */
+                height: 16px;
+                margin-right: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main container for the 3D visualization -->
+    <div id="truck-container">
+        <!-- The Three.js scene will be rendered inside this div -->
+        <div id="tooltip"></div>
+    </div>
+
+    <!-- Control panel for adding, deleting, and managing parcels -->
+    <div id="control-panel">
+        <!-- Main title for the control panel, directly from the image -->
+        <h2 id="add-parcel-main-title">Add Parcel</h2>
+
+        <!-- Section for adding new parcels -->
+        <div class="panel-section">
+            <div class="form-group">
+                <label for="parcelWidth">Width (m):</label>
+                <input type="number" id="parcelWidth" value="1.0" min="0.1" step="0.1" class="rounded-md">
+            </div>
+            <div class="form-group">
+                <label for="parcelHeight">Height (m):</label>
+                <input type="number" id="parcelHeight" value="1.0" min="0.1" step="0.1" class="rounded-md">
+            </div>
+            <div class="form-group">
+                <label for="parcelDepth">Depth (m):</label>
+                <input type="number" id="parcelDepth" value="1.0" min="0.1" step="0.1" class="rounded-md">
+            </div>
+            <div class="form-group">
+                <label for="parcelWeight">Weight (kg):</label>
+                <input type="number" id="parcelWeight" value="10.0" min="0.1" step="0.1" class="rounded-md">
+            </div>
+            <div class="form-group">
+                <label for="parcelPriority">Priority:</label>
+                <select id="parcelPriority" class="rounded-md">
+                    <option value="High Priority">High Priority</option>
+                    <option value="Medium Priority">Medium Priority</option>
+                    <option value="Low Priority">Low Priority</option>
+                </select>
+            </div>
+             <!-- The image does not show 'Destination' or 'Zone' in the Add Parcel form,
+                  but to retain functionality, I will keep them styled consistently. -->
+            <div class="form-group">
+                <label for="parcelDestination">Destination:</label>
+                <input type="text" id="parcelDestination" value="Zone A Warehouse" class="rounded-md">
+            </div>
+            <div class="form-group">
+                <label for="parcelZone">Zone:</label>
+                <select id="parcelZone" class="rounded-md">
+                    <option value="Zone 1">Zone 1</option>
+                    <option value="Zone 2">Zone 2</option>
+                    <option value="Zone 3">Zone 3</option>
+                    <option value="Fragile">Fragile</option>
+                </select>
+            </div>
+            <div class="flex gap-4 mt-4">
+                <button id="addParcelBtn" class="btn btn-primary flex-1 rounded-md">
+                    <i class="fas fa-box-open"></i> Add Parcel
+                </button>
+                <button id="clearAllParcelsBtn" class="btn btn-danger flex-1 rounded-md">
+                    <i class="fas fa-trash-alt"></i> Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Section for deleting existing parcels - styled to match new aesthetic -->
+        <div class="panel-section">
+            <h3>Delete Parcel(s)</h3>
+            <div class="form-group">
+                <label for="deleteParcelIds">Parcel ID(s) (comma-separated):</label>
+                <input type="text" id="deleteParcelIds" placeholder="e.g., parcel-0, parcel-2" class="rounded-md">
+            </div>
+            <button id="deleteParcelBtn" class="btn btn-secondary w-full rounded-md">
+                <i class="fas fa-minus-circle"></i> Delete Selected Parcels
+            </button>
+        </div>
+
+        <!-- Color legend section - Matched to image design -->
+        <div class="panel-section">
+            <h3>Priority Colors:</h3>
+            <div class="color-legend">
+                <div class="color-item"><div class="color-box high-priority"></div> High (Red)</div>
+                <div class="color-item"><div class="color-box medium-priority"></div> Medium (Orange)</div>
+                <div class="color-item"><div class="color-box low-priority"></div> Low (Cyan)</div>
+            </div>
+        </div>
+
+        <!-- Camera controls section - styled to match new aesthetic -->
+        <div class="panel-section">
+            <h3>Camera Controls</h3>
+            <p class="text-sm text-gray-400">Drag to rotate, scroll to zoom, right-click drag to pan.</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for Three.js scene components and controls
+        let scene, camera, renderer, controls, dragControls;
+        let raycaster; // Used for detecting mouse interactions with 3D objects
+        let mouse; // Stores mouse coordinates
+        let objects = []; // Array to hold all draggable parcel meshes
+        let parcelIdCounter = 0; // Counter for unique parcel IDs
+        let tooltip; // HTML element for displaying parcel details
+        let currentHoveredObject = null; // Tracks the object currently under the mouse
+        let currentClickedObject = null; // Tracks the object that was clicked (for persistent tooltip)
+
+        // Dimensions of the truck's interior
+        const TRUCK_WIDTH = 10;
+        const TRUCK_HEIGHT = 6;
+        const TRUCK_DEPTH = 15;
+
+        // Color mapping for different priority levels and zones - Adjusted to match image legend
+        const COLOR_MAP = {
+            'High Priority': 0xE74C3C, // Red from image
+            'Medium Priority': 0xF39C12, // Orange from image
+            'Low Priority': 0x1ABC9C,    // Cyan from image
+            'Fragile': 0xffff00,     // Yellow (retained for functionality, not in legend)
+            'Zone 1': 0x0000ff,      // Blue (retained for functionality, not in legend)
+            'Zone 2': 0x00ff00,      // Green (retained for functionality, not in legend)
+            'Zone 3': 0xffa500,      // Orange (retained for functionality, not in legend) - Note: will conflict if Priority is also Orange
+            'Default': 0xaaaaaa       // Grey if no specific match is found
+        };
+
+        /**
+         * Initializes the Three.js scene, camera, renderer, and controls.
+         * Sets up the truck interior and initial parcels.
+         */
+        function init() {
+            const container = document.getElementById('truck-container');
+            tooltip = document.getElementById('tooltip');
+
+            // --- Scene Setup ---
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f2f5); // Set a light grey background
+
+            // --- Camera Setup ---
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            // Position the camera to view the truck from an angle
+            camera.position.set(TRUCK_WIDTH * 1.5, TRUCK_HEIGHT * 1.5, TRUCK_DEPTH * 1.5);
+            // Point the camera towards the center of the truck
+            camera.lookAt(0, 0, 0);
+
+            // --- Renderer Setup ---
+            renderer = new THREE.WebGLRenderer({ antialias: true }); // Enable anti-aliasing for smoother edges
+            renderer.setSize(container.clientWidth, container.clientHeight); // Set renderer size to container size
+            renderer.setPixelRatio(window.devicePixelRatio); // Adjust for high-DPI screens
+            container.appendChild(renderer.domElement); // Add renderer's canvas to the DOM
+
+            // --- OrbitControls Setup (for camera interaction) ---
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Enable damping for smoother camera movement
+            controls.dampingFactor = 0.05; // Damping factor
+            controls.screenSpacePanning = false; // Prevent panning in screen space
+            controls.minDistance = 5; // Minimum zoom distance
+            controls.maxDistance = 100; // Maximum zoom distance
+            controls.maxPolarAngle = Math.PI / 2; // Prevent camera from going below the floor
+
+            // --- Lighting Setup ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Soft white ambient light
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Directional light for shadows/highlights
+            directionalLight.position.set(TRUCK_WIDTH, TRUCK_HEIGHT * 2, TRUCK_DEPTH).normalize(); // Position and normalize direction
+            scene.add(directionalLight);
+
+            // --- Truck Interior Creation ---
+            createTruckInterior();
+
+            // --- Raycaster Setup (for mouse interaction with objects) ---
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // --- Event Listeners for Interactivity ---
+            // Mouse move for hover detection
+            renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+            // Mouse click for persistent tooltip and un-selection
+            renderer.domElement.addEventListener('click', onMouseClick, false);
+            // Window resize for responsiveness
+            window.addEventListener('resize', onWindowResize, false);
+
+            // --- DragControls Setup (for dragging parcels) ---
+            // This needs to be initialized/re-initialized whenever the set of draggable objects changes
+            initializeDragControls();
+
+            // --- Initial Parcels for Demonstration ---
+            addParcel(2, 2, 2, 10, 'London', 'High Priority', 'Zone 1', 'parcel-0');
+            addParcel(1.5, 3, 1, 7, 'Paris', 'Fragile', 'Fragile', 'parcel-1');
+            addParcel(3, 1, 2, 12, 'Berlin', 'Medium Priority', 'Zone 2', 'parcel-2');
+            addParcel(1, 1, 1, 3, 'Rome', 'Low Priority', 'Zone 3', 'parcel-3');
+
+            // --- Control Panel Button Event Listeners ---
+            document.getElementById('addParcelBtn').addEventListener('click', () => {
+                // Get values from input fields and parse them
+                const width = parseFloat(document.getElementById('parcelWidth').value);
+                const height = parseFloat(document.getElementById('parcelHeight').value);
+                const depth = parseFloat(document.getElementById('parcelDepth').value);
+                const weight = parseFloat(document.getElementById('parcelWeight').value);
+                const destination = document.getElementById('parcelDestination').value;
+                const priority = document.getElementById('parcelPriority').value;
+                const zone = document.getElementById('parcelZone').value;
+                // Call addParcel function with collected data
+                addParcel(width, height, depth, weight, destination, priority, zone);
+            });
+
+            document.getElementById('deleteParcelBtn').addEventListener('click', () => {
+                // Get comma-separated IDs, split them, trim whitespace, and filter out empty strings
+                const idsToDelete = document.getElementById('deleteParcelIds').value
+                                    .split(',')
+                                    .map(id => id.trim())
+                                    .filter(id => id !== '');
+                // Call deleteParcels function with the array of IDs
+                deleteParcels(idsToDelete);
+            });
+
+            document.getElementById('clearAllParcelsBtn').addEventListener('click', () => {
+                // Get all current parcel IDs and delete them
+                const allParcelIds = objects.map(obj => obj.userData.id);
+                deleteParcels(allParcelIds);
+            });
+
+            // --- Start the Animation Loop ---
+            animate();
+        }
+
+        /**
+         * Creates and adds the 3D model of the truck's interior to the scene.
+         * It consists of a floor and transparent walls.
+         */
+        function createTruckInterior() {
+            // --- Floor ---
+            const floorGeometry = new THREE.PlaneGeometry(TRUCK_WIDTH, TRUCK_DEPTH);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, side: THREE.DoubleSide });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+            floor.position.y = -TRUCK_HEIGHT / 2; // Position at the bottom of the truck
+            scene.add(floor);
+
+            // --- Walls (as separate transparent planes for better visibility) ---
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0xcccccc, // Light grey color
+                transparent: true,
+                opacity: 0.5, // Semi-transparent
+                side: THREE.DoubleSide // Render both sides
+            });
+
+            // Left Wall
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(TRUCK_DEPTH, TRUCK_HEIGHT), wallMaterial);
+            leftWall.rotation.y = Math.PI / 2; // Rotate to be vertical
+            leftWall.position.set(-TRUCK_WIDTH / 2, 0, 0); // Position at the left edge
+            scene.add(leftWall);
+
+            // Right Wall
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(TRUCK_DEPTH, TRUCK_HEIGHT), wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2; // Rotate to be vertical
+            rightWall.position.set(TRUCK_WIDTH / 2, 0, 0); // Position at the right edge
+            scene.add(rightWall);
+
+            // Back Wall
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(TRUCK_WIDTH, TRUCK_HEIGHT), wallMaterial);
+            backWall.position.set(0, 0, -TRUCK_DEPTH / 2); // Position at the back edge
+            scene.add(backWall);
+
+            // Front Wall (can be considered open for loading, but added for visual completeness)
+            const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(TRUCK_WIDTH, TRUCK_HEIGHT), wallMaterial);
+            frontWall.position.set(0, 0, TRUCK_DEPTH / 2); // Position at the front edge
+            scene.add(frontWall);
+
+            // --- Grid Helper on the Floor ---
+            // Provides a visual reference for size and position within the truck
+            const gridHelper = new THREE.GridHelper(TRUCK_WIDTH, 10, 0x000000, 0x000000);
+            gridHelper.position.y = -TRUCK_HEIGHT / 2 + 0.01; // Slightly above the floor to prevent z-fighting
+            gridHelper.material.opacity = 0.2;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+        }
+
+        /**
+         * Initializes or re-initializes DragControls.
+         * This function is called whenever the `objects` array (containing parcels) changes.
+         */
+        function initializeDragControls() {
+            if (dragControls) {
+                // Dispose of the old controls to prevent memory leaks and multiple event listeners
+                dragControls.dispose();
+            }
+            // Create new DragControls with the current set of draggable objects
+            dragControls = new THREE.DragControls(objects, camera, renderer.domElement);
+
+            // Event listener for when dragging starts
+            dragControls.addEventListener('dragstart', function (event) {
+                controls.enabled = false; // Disable OrbitControls to allow only dragging
+                event.object.material.emissive.set(0x00ff00); // Highlight the dragged object with green emissive light
+            });
+
+            // Event listener for when dragging ends
+            dragControls.addEventListener('dragend', function (event) {
+                controls.enabled = true; // Re-enable OrbitControls
+                event.object.material.emissive.set(0x000000); // Remove the highlight
+
+                // Clamp the parcel's position to keep it within the truck boundaries
+                const halfWidth = event.object.geometry.parameters.width / 2;
+                const halfHeight = event.object.geometry.parameters.height / 2;
+                const halfDepth = event.object.geometry.parameters.depth / 2;
+
+                event.object.position.x = Math.max(-TRUCK_WIDTH / 2 + halfWidth, Math.min(TRUCK_WIDTH / 2 - halfWidth, event.object.position.x));
+                event.object.position.y = Math.max(-TRUCK_HEIGHT / 2 + halfHeight, Math.min(TRUCK_HEIGHT / 2 - halfHeight, event.object.position.y));
+                event.object.position.z = Math.max(-TRUCK_DEPTH / 2 + halfDepth, Math.min(TRUCK_DEPTH / 2 - halfDepth, event.object.position.z));
+            });
+        }
+
+        /**
+         * Adds a new parcel (3D box) to the scene with specified properties.
+         * @param {number} width - Width of the parcel.
+         * @param {number} height - Height of the parcel.
+         * @param {number} depth - Depth of the parcel.
+         * @param {number} weight - Weight of the parcel.
+         * @param {string} destination - Destination of the parcel.
+         * @param {string} priority - Priority of the parcel (e.g., "High Priority").
+         * @param {string} zone - Zone of the parcel (e.g., "Zone 1", "Fragile").
+         * @param {string} [id] - Optional, unique ID for the parcel. Automatically generated if not provided.
+         */
+        function addParcel(width, height, depth, weight, destination, priority, zone, id = `parcel-${parcelIdCounter++}`) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+
+            // Determine the color of the parcel based on priority or zone
+            let color = COLOR_MAP['Default'];
+            // Prioritize priority colors if available in the legend
+            if (COLOR_MAP[priority]) {
+                color = COLOR_MAP[priority];
+            } else if (COLOR_MAP[zone]) {
+                // Fallback to zone colors if priority not specifically mapped in the aesthetic legend
+                color = COLOR_MAP[zone];
+            }
+
+
+            const material = new THREE.MeshStandardMaterial({ color: color });
+            const parcel = new THREE.Mesh(geometry, material);
+
+            // Store all parcel data in the userData property of the mesh, for easy retrieval
+            parcel.userData = {
+                id: id,
+                dimensions: `${width}x${height}x${depth}`,
+                weight: weight,
+                destination: destination,
+                priority: priority,
+                zone: zone
+            };
+
+            // Calculate random position within the truck boundaries,
+            // adjusted so the entire parcel fits.
+            const minX = -TRUCK_WIDTH / 2 + width / 2;
+            const maxX = TRUCK_WIDTH / 2 - width / 2;
+            const minY = -TRUCK_HEIGHT / 2 + height / 2;
+            const maxY = TRUCK_HEIGHT / 2 - height / 2;
+            const minZ = -TRUCK_DEPTH / 2 + depth / 2;
+            const maxZ = TRUCK_DEPTH / 2 - depth / 2;
+
+            parcel.position.set(
+                Math.random() * (maxX - minX) + minX,
+                Math.random() * (maxY - minY) + minY,
+                Math.random() * (maxZ - minZ) + minZ
+            );
+
+            scene.add(parcel); // Add the parcel to the 3D scene
+            objects.push(parcel); // Add the parcel to the array of draggable objects
+            initializeDragControls(); // Re-initialize DragControls to include the new parcel
+
+            console.log(`Added parcel: ${id}`);
+        }
+
+        /**
+         * Deletes parcels from the scene based on a list of their IDs.
+         * @param {string[]} ids - An array of parcel IDs to be deleted.
+         */
+        function deleteParcels(ids) {
+            const removedObjects = [];
+            const remainingObjects = [];
+
+            // Iterate through the current objects
+            objects.forEach(obj => {
+                if (ids.includes(obj.userData.id)) {
+                    scene.remove(obj); // Remove the mesh from the scene
+                    removedObjects.push(obj.userData.id); // Add to list of removed IDs
+                } else {
+                    remainingObjects.push(obj); // Keep objects not slated for deletion
+                }
+            });
+
+            objects = remainingObjects; // Update the main objects array
+            initializeDragControls(); // Re-initialize DragControls with the updated set of objects
+
+            if (removedObjects.length > 0) {
+                console.log(`Deleted parcels: ${removedObjects.join(', ')}`);
+            } else {
+                // Only log if the intention was to delete specific parcels and none were found
+                if (ids.length > 0) {
+                    console.log('No parcels found with the provided IDs.');
+                } else {
+                    console.log('No parcels to delete (list was empty).');
+                }
+            }
+            document.getElementById('deleteParcelIds').value = ''; // Clear the input field after deletion
+            hideTooltip(); // Hide any active tooltip if the deleted object was hovered/clicked
+        }
+
+        /**
+         * Event handler for mouse movement over the canvas.
+         * Used to detect hovering over parcels and display/update the tooltip.
+         * @param {MouseEvent} event - The mouse event object.
+         */
+        function onMouseMove(event) {
+            const container = document.getElementById('truck-container');
+            // Calculate mouse position in normalized device coordinates (-1 to +1)
+            mouse.x = (event.clientX / container.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / container.clientHeight) * 2 + 1;
+
+            // If an object is currently clicked, its tooltip should remain visible,
+            // so we don't update on mere hover.
+            if (currentClickedObject) {
+                return;
+            }
+
+            raycaster.setFromCamera(mouse, camera); // Update raycaster with current mouse and camera
+            const intersects = raycaster.intersectObjects(objects); // Find objects intersected by the ray
+
+            if (intersects.length > 0) {
+                // If an object is intersected
+                if (currentHoveredObject !== intersects[0].object) {
+                    // If a new object is hovered (different from the previously hovered one)
+                    currentHoveredObject = intersects[0].object;
+                    // Display tooltip for the new hovered object
+                    displayTooltip(intersects[0].object, event.clientX, event.clientY);
+                }
+            } else {
+                // If no object is hovered
+                if (currentHoveredObject) {
+                    currentHoveredObject = null; // Clear hovered object
+                }
+                hideTooltip(); // Hide tooltip
+            }
+        }
+
+        /**
+         * Event handler for mouse clicks on the canvas.
+         * Used to toggle persistent tooltips on clicked parcels.
+         * @param {MouseEvent} event - The mouse event object.
+         */
+        function onMouseClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(objects);
+
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                if (currentClickedObject === clickedObject) {
+                    // If the same object is clicked again, hide its tooltip
+                    currentClickedObject = null;
+                    hideTooltip();
+                } else {
+                    // If a new object is clicked, make its tooltip persistent
+                    currentClickedObject = clickedObject;
+                    displayTooltip(clickedObject, event.clientX, event.clientY);
+                }
+            } else {
+                // If clicked outside any object, hide the persistent tooltip
+                currentClickedObject = null;
+                hideTooltip();
+            }
+        }
+
+        /**
+         * Displays the HTML tooltip with the given object's user data.
+         * @param {THREE.Mesh} object - The Three.js mesh whose data is to be displayed.
+         * @param {number} x - X coordinate for tooltip position (from mouse event).
+         * @param {number} y - Y coordinate for tooltip position (from mouse event).
+         */
+        function displayTooltip(object, x, y) {
+            const data = object.userData; // Get the custom data stored in the object
+            tooltip.innerHTML = `
+                <strong>ID:</strong> ${data.id}<br>
+                <strong>Dimensions:</strong> ${data.dimensions}<br>
+                <strong>Weight:</strong> ${data.weight} kg<br>
+                <strong>Destination:</strong> ${data.destination}<br>
+                <strong>Priority:</strong> ${data.priority}<br>
+                <strong>Zone:</strong> ${data.zone}
+            `;
+            // Position the tooltip relative to the mouse cursor
+            tooltip.style.left = `${x + 15}px`;
+            tooltip.style.top = `${y + 15}px`;
+            tooltip.classList.add('visible'); // Make the tooltip visible
+        }
+
+        /**
+         * Hides the HTML tooltip.
+         */
+        function hideTooltip() {
+            tooltip.classList.remove('visible'); // Hide the tooltip
+            // Only clear the hovered object if no object is currently clicked
+            if (!currentClickedObject) {
+                currentHoveredObject = null;
+            }
+        }
+
+        /**
+         * Event handler for window resize events.
+         * Adjusts camera aspect ratio and renderer size to maintain responsiveness.
+         */
+        function onWindowResize() {
+            const container = document.getElementById('truck-container');
+            camera.aspect = container.clientWidth / container.clientHeight; // Update camera aspect ratio
+            camera.updateProjectionMatrix(); // Update camera projection matrix
+            renderer.setSize(container.clientWidth, container.clientHeight); // Resize renderer
+        }
+
+        /**
+         * The main animation loop.
+         * This function is called repeatedly to render the scene and update controls.
+         */
+        function animate() {
+            requestAnimationFrame(animate); // Request the next animation frame
+            controls.update(); // Update OrbitControls (required if enableDamping is true)
+            renderer.render(scene, camera); // Render the scene with the camera
+        }
+
+        // Initialize the application when the window has fully loaded
+        window.onload = init;
+
+    </script>
+</body>
+</html>
