@@ -1222,3 +1222,68 @@ def mimic_accident_api(request):
                 'message': f"Accident condition triggered for {p.name}!"
             })
     return JsonResponse({'alerts': [], 'message': "No active biker with in-progress delivery found."})
+
+
+
+def truck3d_view(request):
+    return render(request, 'drone/truck3d.html')
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from .models import Truck, Parcel
+from django.utils import timezone
+import base64
+
+@csrf_exempt
+def get_truck_parcels(request, truck_id):
+    truck = Truck.objects.get(id=truck_id)
+    parcels = list(truck.parcels.values())
+    return JsonResponse({'truck': truck.name, 'parcels': parcels})
+
+@csrf_exempt
+def scan_parcel(request, truck_id, parcel_id):
+    if request.method == 'POST':
+        parcel = Parcel.objects.get(id=parcel_id, truck_id=truck_id)
+        data = request.POST
+        parcel.code = data.get('code', '')
+        parcel.verified = True
+        parcel.tampered = data.get('tampered', 'false') == 'true'
+        parcel.scan_time = timezone.now()
+        parcel.info = data.get('info', parcel.info)
+        # Handle photo (base64 string)
+        photo_data = data.get('photo')
+        if photo_data:
+            import uuid
+            from django.core.files.base import ContentFile
+            format, imgstr = photo_data.split(';base64,')
+            ext = format.split('/')[-1]
+            file_name = f"{uuid.uuid4()}.{ext}"
+            parcel.photo.save(file_name, ContentFile(base64.b64decode(imgstr)), save=True)
+        parcel.save()
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'error': 'POST required'}, status=400)
+
+def truck_security(request, truck_id):
+    truck = get_object_or_404(Truck, id=truck_id)
+    return render(request, 'drone/security.html', {'truck': truck})
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render, redirect
+from .models import Truck
+from django.contrib import messages
+
+def truck_list(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        session_id = request.POST.get('session_id')
+        photo = request.FILES.get('photo')
+        truck = Truck.objects.create(name=name, session_id=session_id)
+        if photo:
+            truck.photo = photo  # Add a photo field to Truck model if not present
+            truck.save()
+        messages.success(request, "Truck onboarded!")
+        return redirect('truck_list')
+    trucks = Truck.objects.all()
+    return render(request, 'drone/truck_list.html', {'trucks': trucks})

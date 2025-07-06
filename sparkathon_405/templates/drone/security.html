@@ -1,0 +1,528 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Truck Security Check & Deboarding</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      body {
+        background: #f6fff6;
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+      .truck-container {
+        margin: 40px auto 20px auto;
+        padding: 20px;
+        background: rgba(0, 128, 0, 0.15);
+        border: 2px solid #0a0;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        max-width: 700px;
+      }
+      .truck-info-bar {
+        text-align: center;
+        margin-bottom: 12px;
+        font-size: 1.08em;
+        color: #222;
+      }
+      .truck-photo {
+        display: block;
+        margin: 0 auto 10px auto;
+        width: 120px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+      }
+      .mode-toggle-bar {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .mode-btn {
+        padding: 6px 18px;
+        border-radius: 6px;
+        border: none;
+        margin: 0 4px;
+        font-weight: bold;
+        background: #e0ffe0;
+        color: #0a0;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+      .mode-btn.active {
+        background: #0a0;
+        color: #fff;
+      }
+      .truck-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        grid-template-rows: repeat(3, 80px);
+        gap: 12px;
+        background: rgba(0, 128, 0, 0.08);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .parcel {
+        background: #fff;
+        border: 2px solid #0a0;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        transition: box-shadow 0.2s, background 0.2s, border 0.2s;
+      }
+      .parcel.verified {
+        background: #e0ffe0;
+        border-color: #2ecc40;
+        box-shadow: 0 0 8px #2ecc40;
+      }
+      .parcel.deboarded {
+        background: #fffbe0;
+        border-color: #facc15;
+        box-shadow: 0 0 8px #facc15;
+      }
+      .parcel .status {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        font-size: 1.2em;
+      }
+      .log-section {
+        margin: 30px auto 0 auto;
+        width: 600px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        padding: 18px;
+      }
+      .log-section h3 {
+        margin-top: 0;
+      }
+      .log-list {
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 0.98em;
+      }
+      /* Modal styles */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.3);
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-content {
+        background: #fff;
+        padding: 30px 24px;
+        border-radius: 10px;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
+        min-width: 320px;
+      }
+      .modal-content input {
+        width: 100%;
+        padding: 8px;
+        margin: 10px 0 18px 0;
+        border-radius: 5px;
+        border: 1px solid #aaa;
+      }
+      .modal-content button {
+        padding: 8px 18px;
+        border: none;
+        border-radius: 5px;
+        background: #2ecc40;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .modal-content button.close {
+        background: #aaa;
+        margin-left: 10px;
+      }
+    </style>
+</head>
+<body>
+    <div class="truck-container">
+      <h2 style="text-align: center; color: #0a0">
+        Truck Security Check & Deboarding
+      </h2>
+      <div class="truck-info-bar">
+        <b>Truck ID:</b> {{ truck.id }} &nbsp; | &nbsp; <b>Session:</b> {{ truck.session_id }}<br />
+        <span style="font-size: 0.95em; color: #555"
+          >Onboarded: {{ truck.created_at|date:"Y-m-d H:i" }}</span
+        >
+      </div>
+      {% if truck.photo %}
+      <img src="{{ truck.photo.url }}" class="truck-photo" alt="Truck Photo" />
+      {% else %}
+      <img
+        src="{% static 'img/truck_placeholder.png' %}"
+        class="truck-photo"
+        alt="No Photo"
+      />
+      {% endif %}
+      <!-- Active QR code for scanning -->
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 18px;
+        "
+      >
+        <div id="activeQR"></div>
+        <div style="font-size: 0.95em; color: #333; margin-top: 6px">
+          Scan this QR for truck/session verification
+        </div>
+      </div>
+      <!-- Mode toggle -->
+      <div class="mode-toggle-bar">
+        <button onclick="setMode('boarding')" id="modeBoarding" class="mode-btn active">Boarding</button>
+        <button onclick="setMode('deboarding')" id="modeDeboarding" class="mode-btn">Deboarding</button>
+      </div>
+      <!-- Truck grid follows -->
+      <div class="truck-grid" id="truckGrid">
+        <!-- Parcels will be generated here -->
+      </div>
+    </div>
+    <div class="log-section">
+      <h3>Security Log (Audit Trail)</h3>
+      <div class="log-list" id="logList"></div>
+    </div>
+    <!-- Modal for scanning -->
+    <div class="modal" id="scanModal">
+      <div class="modal-content">
+        <h3>Scan Parcel (QR/Barcode)</h3>
+        <input type="text" id="scanInput" placeholder="Enter or scan code..." />
+        <div style="margin-bottom: 10px; color: #888; font-size: 0.95em">
+          Simulate scanning by entering a code.
+        </div>
+        <button id="scanBtn">Verify & Load</button>
+        <button class="close" id="closeModalBtn">Cancel</button>
+      </div>
+    </div>
+    <script>
+      // --- CONFIGURATION ---
+      // Use truck info from Django context
+      const TRUCK_ID = {{ truck.id }};
+      const TRUCK_SESSION = "{{ truck.session_id|escapejs }}";
+
+      // Generate the active QR code (with truck info)
+      const qrData = `TruckID:${TRUCK_ID}|Session:${TRUCK_SESSION}`;
+      new QRCode(document.getElementById("activeQR"), {
+          text: qrData,
+          width: 120,
+          height: 120,
+          colorDark : "#0a0",
+          colorLight : "#fff",
+          correctLevel : QRCode.CorrectLevel.H
+      });
+
+      // Truck grid configuration
+      const ROWS = 3;
+      const COLS = 5;
+      const truckGrid = document.getElementById('truckGrid');
+      const logList = document.getElementById('logList');
+      const scanModal = document.getElementById('scanModal');
+      const scanInput = document.getElementById('scanInput');
+      const scanBtn = document.getElementById('scanBtn');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const activeQR = document.getElementById('activeQR');
+
+      let parcels = [];
+      let selectedParcel = null;
+      let mode = 'boarding'; // or 'deboarding'
+
+      function setMode(newMode) {
+        mode = newMode;
+        document.getElementById('modeBoarding').classList.toggle('active', mode === 'boarding');
+        document.getElementById('modeDeboarding').classList.toggle('active', mode === 'deboarding');
+        createTruckGrid();
+        addLog(`<span style="color:blue">Mode switched to <b>${mode.charAt(0).toUpperCase() + mode.slice(1)}</b></span>`);
+      }
+
+      // --- FETCH PARCELS FROM BACKEND ---
+      function fetchParcels() {
+          fetch(`/trucks/${TRUCK_ID}/parcels/`)
+              .then(res => res.json())
+              .then(data => {
+                  parcels = data.parcels;
+                  // Add deboarded property for UI
+                  parcels.forEach(p => { if (p.deboarded === undefined) p.deboarded = false; });
+                  createTruckGrid();
+              })
+              .catch(() => {
+                  // fallback: create empty grid if backend not available
+                  parcels = [];
+                  for (let r = 0; r < ROWS; r++) {
+                      for (let c = 0; c < COLS; c++) {
+                          parcels.push({
+                              id: r * COLS + c + 1,
+                              row: r,
+                              col: c,
+                              code: '',
+                              verified: false,
+                              tampered: false,
+                              deboarded: false,
+                              info: `Product #${r * COLS + c + 1}`
+                          });
+                      }
+                  }
+                  createTruckGrid();
+              });
+      }
+
+      // Generate parcels grid
+      function createTruckGrid() {
+          truckGrid.innerHTML = '';
+          for (let idx = 0; idx < parcels.length; idx++) {
+              const parcel = parcels[idx];
+              const div = document.createElement('div');
+              let statusIcon = '🔒';
+              if (mode === 'boarding') {
+                if (parcel.verified) statusIcon = parcel.tampered ? '⚠' : '✅';
+              } else if (mode === 'deboarding') {
+                if (parcel.deboarded) statusIcon = '📦';
+                else if (parcel.verified) statusIcon = parcel.tampered ? '⚠' : '✅';
+              }
+              div.className = 'parcel' +
+                (parcel.verified ? ' verified' : '') +
+                (mode === 'deboarding' && parcel.deboarded ? ' deboarded' : '');
+              div.dataset.idx = idx;
+              div.innerHTML = `<span class="status">${statusIcon}</span>`;
+              div.title = parcel.verified
+                  ? `${parcel.info}\nCode: ${parcel.code}${parcel.tampered ? '\nTAMPERED' : ''}${parcel.deboarded ? '\nDEBOARDED' : ''}`
+                  : parcel.info;
+              if (mode === 'boarding') {
+                div.onclick = () => openScanModal(idx);
+              } else {
+                div.onclick = () => toggleDeboarded(idx);
+              }
+              div.oncontextmenu = (e) => { e.preventDefault(); showParcelInfo(idx); };
+              truckGrid.appendChild(div);
+          }
+      }
+
+      function openScanModal(idx) {
+          if (mode !== 'boarding') return;
+          selectedParcel = idx;
+          scanInput.value = '';
+          scanModal.style.display = 'flex';
+          scanInput.focus();
+      }
+
+      function closeScanModal() {
+          scanModal.style.display = 'none';
+          selectedParcel = null;
+      }
+
+      function toggleDeboarded(idx) {
+        if (mode !== 'deboarding') return;
+        const parcel = parcels[idx];
+        parcel.deboarded = !parcel.deboarded;
+        updateParcelUI(idx);
+        addLog(`Parcel ${parcel.info} marked as <b>${parcel.deboarded ? 'DEBOARDED' : 'ONBOARD'}</b>`);
+      }
+
+      // --- ENHANCED SMART SCANNING & SECURITY ---
+      // Geo-fencing: set allowed area (example: 500m radius around a point)
+      const GEOFENCE_CENTER = { lat: 28.6139, lng: 77.2090 }; // Example: New Delhi
+      const GEOFENCE_RADIUS_METERS = 500;
+      let lastPhotoDataUrl = null;
+      let isSyncing = false;
+
+      // Voice feedback
+      function speak(text) {
+          if ('speechSynthesis' in window) {
+              const utter = new SpeechSynthesisUtterance(text);
+              window.speechSynthesis.speak(utter);
+          }
+      }
+
+      // Geo-fence check
+      function isWithinGeofence(lat, lng) {
+          function toRad(x) { return x * Math.PI / 180; }
+          const R = 6371000;
+          const dLat = toRad(lat - GEOFENCE_CENTER.lat);
+          const dLng = toRad(lng - GEOFENCE_CENTER.lng);
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(toRad(GEOFENCE_CENTER.lat)) * Math.cos(toRad(lat)) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const d = R * c;
+          return d <= GEOFENCE_RADIUS_METERS;
+      }
+
+      // Camera capture
+      async function capturePhoto() {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return null;
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+              const video = document.createElement('video');
+              video.srcObject = stream;
+              await video.play();
+              await new Promise(r => setTimeout(r, 500));
+              const canvas = document.createElement('canvas');
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              canvas.getContext('2d').drawImage(video, 0, 0);
+              const dataUrl = canvas.toDataURL('image/png');
+              stream.getTracks().forEach(track => track.stop());
+              return dataUrl;
+          } catch (e) { return null; }
+      }
+
+      // Simulate real-time sync
+      function syncToDashboard(logEntry) {
+          isSyncing = true;
+          document.getElementById('syncStatus').textContent = 'Syncing...';
+          setTimeout(() => {
+              isSyncing = false;
+              document.getElementById('syncStatus').textContent = 'Synced';
+          }, 1000);
+      }
+
+      // --- ENHANCED VERIFY FUNCTION ---
+      async function verifyParcel() {
+          if (mode !== 'boarding') return;
+          const code = scanInput.value.trim();
+          if (!code) return;
+          // Geo-fence validation
+          if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(async (pos) => {
+                  const { latitude, longitude } = pos.coords;
+                  if (!isWithinGeofence(latitude, longitude)) {
+                      speak('Scan failed. Outside allowed area.');
+                      alert('Scan failed: Outside allowed geo-fence area!');
+                      addLog(`<span style='color:red'>Scan failed: Outside geo-fence</span>`);
+                      return;
+                  }
+                  await completeScan(code, latitude, longitude);
+              }, () => {
+                  speak('Location error. Scan denied.');
+                  alert('Location error: Cannot verify geo-fence.');
+                  addLog(`<span style='color:red'>Scan failed: Location error</span>`);
+              });
+          } else {
+              speak('Location not supported. Scan denied.');
+              alert('Location not supported.');
+              addLog(`<span style='color:red'>Scan failed: Location not supported</span>`);
+          }
+      }
+
+      async function completeScan(code, lat, lng) {
+          const parcel = parcels[selectedParcel];
+          parcel.code = code;
+          parcel.verified = true;
+          parcel.tampered = Math.random() < 0.05;
+          // Photo capture
+          lastPhotoDataUrl = await capturePhoto();
+
+          // --- SEND TO BACKEND ---
+          const formData = new FormData();
+          formData.append('code', code);
+          formData.append('tampered', parcel.tampered);
+          formData.append('info', parcel.info);
+          if (lastPhotoDataUrl) formData.append('photo', lastPhotoDataUrl);
+
+          fetch(`/trucks/${TRUCK_ID}/parcels/${parcel.id}/scan/`, {
+              method: 'POST',
+              body: formData
+          }).then(res => res.json()).then(resp => {
+              if (resp.status === 'ok') {
+                  updateParcelUI(selectedParcel);
+                  let logMsg = `Parcel ${parcel.info} scanned: <b>${code}</b> at [${lat.toFixed(5)},${lng.toFixed(5)}]`;
+                  if (parcel.tampered) {
+                      logMsg += ' <span style="color:red">[TAMPERED]</span>';
+                      speak('Tamper alert! Parcel tampered.');
+                      alert('Tamper alert! Parcel tampered.');
+                  } else {
+                      speak('Scan successful. Parcel loaded.');
+                  }
+                  if (lastPhotoDataUrl) {
+                      logMsg += ' <span style="color:blue">[Photo captured]</span>';
+                  }
+                  addLog(logMsg, lastPhotoDataUrl);
+              } else {
+                  alert('Failed to save scan to server.');
+              }
+          }).catch(() => {
+              alert('Failed to connect to server.');
+          });
+
+          closeScanModal();
+      }
+
+      // --- ENHANCED LOGGING ---
+      function addLog(msg, photoUrl) {
+          const now = new Date();
+          const time = now.toLocaleTimeString();
+          const entry = document.createElement('div');
+          entry.innerHTML = `[${time}] ${msg}`;
+          if (photoUrl) {
+              const img = document.createElement('img');
+              img.src = photoUrl;
+              img.style.maxWidth = '60px';
+              img.style.maxHeight = '40px';
+              img.style.marginLeft = '8px';
+              img.style.verticalAlign = 'middle';
+              entry.appendChild(img);
+          }
+          logList.prepend(entry);
+          syncToDashboard(entry.innerHTML);
+      }
+
+      // --- SYNC STATUS INDICATOR ---
+      const syncDiv = document.createElement('div');
+      syncDiv.id = 'syncStatus';
+      syncDiv.textContent = 'Synced';
+      syncDiv.style.cssText = 'position:fixed;top:10px;right:20px;background:#0a0;color:#fff;padding:6px 16px;border-radius:8px;z-index:2000;font-weight:bold;box-shadow:0 2px 8px #0a08;';
+      document.body.appendChild(syncDiv);
+
+      function updateParcelUI(idx) {
+          const div = truckGrid.children[idx];
+          const parcel = parcels[idx];
+          let statusIcon = '🔒';
+          if (mode === 'boarding') {
+            if (parcel.verified) statusIcon = parcel.tampered ? '⚠' : '✅';
+          } else if (mode === 'deboarding') {
+            if (parcel.deboarded) statusIcon = '📦';
+            else if (parcel.verified) statusIcon = parcel.tampered ? '⚠' : '✅';
+          }
+          div.className = 'parcel' +
+            (parcel.verified ? ' verified' : '') +
+            (mode === 'deboarding' && parcel.deboarded ? ' deboarded' : '');
+          div.querySelector('.status').textContent = statusIcon;
+          div.title = parcel.verified
+              ? `${parcel.info}\nCode: ${parcel.code}${parcel.tampered ? '\nTAMPERED' : ''}${parcel.deboarded ? '\nDEBOARDED' : ''}`
+              : parcel.info;
+      }
+
+      function showParcelInfo(idx) {
+          const parcel = parcels[idx];
+          let msg = `${parcel.info}\nStatus: `;
+          if (mode === 'boarding') {
+            msg += parcel.verified ? (parcel.tampered ? 'TAMPERED' : 'Verified') : 'Not verified';
+          } else {
+            msg += parcel.deboarded ? 'DEBOARDED' : (parcel.verified ? (parcel.tampered ? 'TAMPERED' : 'Verified') : 'Not verified');
+          }
+          msg += `\nCode: ${parcel.code || 'N/A'}`;
+          alert(msg);
+      }
+
+      scanBtn.onclick = verifyParcel;
+      closeModalBtn.onclick = closeScanModal;
+      scanInput.onkeydown = (e) => { if (e.key === 'Enter') verifyParcel(); };
+      window.onclick = (e) => { if (e.target === scanModal) closeScanModal(); };
+
+      // --- INITIALIZE ---
+      fetchParcels();
+      </script>
+</body>
+</html>

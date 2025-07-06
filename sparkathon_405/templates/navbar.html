@@ -22,56 +22,49 @@
     </label>
     <ul class="saarthi-navbar-list">
       <li>
-        <a href="{% url 'dynamic_render' 'home' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-house"></i> Home</a
-        >
+        <a href="{% url 'dynamic_render' 'home' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-house"></i> Home
+        </a>
+      </li>
+        <li>
+        <a href="{% url 'truck_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-truck-moving"></i> Trucks
+        </a>
       </li>
       <li>
-        <a href="{% url 'dynamic_render' 'admin' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-gauge-high"></i> Admin</a
-        >
+        <a href="{% url 'dynamic_render' 'admin' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-gauge-high"></i> Admin
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'battery' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-battery-full"></i> Battery</a
-        >
+        <a href="{% url 'dynamic_render' 'battery' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-battery-full"></i> Battery
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'inventory' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-warehouse"></i> Inventory</a
-        >
+        <a href="{% url 'dynamic_render' 'inventory' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-warehouse"></i> Inventory
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'productlisting' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-list"></i> Products</a
-        >
+        <a href="{% url 'dynamic_render' 'productlisting' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-list"></i> Products
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'optimalwh' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-cubes"></i> LWH</a
-        >
+        <a href="{% url 'dynamic_render' 'optimalwh' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-cubes"></i> LWH
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'productlistdashboard' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-layer-group"></i> Dashboard</a
-        >
+        <a href="{% url 'dynamic_render' 'productlistdashboard' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-layer-group"></i> Dashboard
+        </a>
       </li>
       <li>
-        <a
-          href="{% url 'dynamic_render' 'multidrone_index' %}"
-          class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-database"></i> Multi-Drone</a
-        >
+        <a href="{% url 'dynamic_render' 'multidrone_index' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-database"></i> Multi-Drone
+        </a>
       </li>
       <li class="saarthi-navbar-dropdown">
         <button class="saarthi-navbar-btn saarthi-navbar-dropdown-btn">
@@ -92,75 +85,64 @@
         </button>
         <ul class="saarthi-navbar-dropdown-list">
           <li>
-            <a
-              href="{% url 'dynamic_render' 'invent1' %}"
-              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
-              >Step 1</a
-            >
+            <a href="{% url 'dynamic_render' 'invent1' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 1</a>
           </li>
           <li>
-            <a
-              href="{% url 'dynamic_render' 'invent2' %}"
-              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
-              >Step 2</a
-            >
+            <a href="{% url 'dynamic_render' 'invent2' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 2</a>
           </li>
           <li>
-            <a
-              href="{% url 'dynamic_render' 'invent3' %}"
-              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
-              >Step 3</a
-            >
+            <a href="{% url 'dynamic_render' 'invent3' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 3</a>
           </li>
           <li>
-            <a
-              href="{% url 'dynamic_render' 'invent4' %}"
-              class="saarthi-navbar-btn saarthi-navbar-dropdown-link"
-              >Step 4</a
-            >
+            <a href="{% url 'dynamic_render' 'invent4' %}" class="saarthi-navbar-btn saarthi-navbar-dropdown-link">Step 4</a>
           </li>
         </ul>
       </li>
       <li>
-        <a href="{% url 'dynamic_render' 'index' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-clipboard-list"></i> Index</a
-        >
-      </li>
-
-      <li>
-        <a href="{% url 'store_list' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-store"></i> Stores</a
-        >
-      </li>
-      <li>
-        <a href="{% url 'drone_list' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-helicopter"></i> Drones</a
-        >
-      </li>
-      <li>
-        <a href="{% url 'delivery_list' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-truck"></i> Deliveries</a
-        >
-      </li>
-      <li>
-        <a href="{% url 'live_tracking' %}" class="saarthi-navbar-btn"
-          ><i class="fa-solid fa-map-location-dot"></i> Live Tracking</a
-        >
-      </li>
-      <li>
-        <a href="{% url 'smartdrop_list' %}" class="saarthi-navbar-btn">
-          <i class="fa-solid fa-charging-station"></i> SmartDrop Points
+        <a href="{% url 'dynamic_render' 'index' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-clipboard-list"></i> Index
         </a>
       </li>
-
+      <li>
+        <a href="{% url 'store_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-store"></i> Stores
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'drone_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-helicopter"></i> Drones
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'delivery_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-truck"></i> Deliveries
+        </a>
+      </li>
+      
+      <li>
+        <a href="{% url 'truck3d' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-cube"></i> Truck Visualization
+        </a>
+      </li>
       <li>
         <a href="{% url 'live_tracking' %}" class="saarthi-navbar-btn">
           <i class="fa-solid fa-map-location-dot"></i> Live Tracking
         </a>
       </li>
+      
+      <li>
+        <a href="{% url 'smartdrop_list' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-charging-station"></i> SmartDrop Points
+        </a>
+      </li>
       <li>
         <a href="{% url 'accident_alerts' %}" class="saarthi-navbar-btn">
           <i class="fa-solid fa-triangle-exclamation"></i> Accident Alerts
+        </a>
+      </li>
+       <li>
+        <a href="{% url 'security' %}" class="saarthi-navbar-btn">
+          <i class="fa-solid fa-shield-halved"></i> Truck Security
         </a>
       </li>
       <li>
@@ -414,4 +396,3 @@
     src="https://kit.fontawesome.com/2b7e5c8e7b.js"
     crossorigin="anonymous"
   ></script>
-</div>

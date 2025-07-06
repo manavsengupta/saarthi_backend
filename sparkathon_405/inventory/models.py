@@ -167,3 +167,23 @@ class AccidentEvent(models.Model):
     def __str__(self):
         return f"Accident for {self.person.name} at {self.timestamp}"
     
+from django.db import models
+
+class Truck(models.Model):
+    name = models.CharField(max_length=100)
+    session_id = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    photo = models.ImageField(upload_to='truck_photos/', blank=True, null=True)  # <-- Add this line
+    # Add location fields if needed
+
+class Parcel(models.Model):
+    truck = models.ForeignKey(Truck, on_delete=models.CASCADE, related_name='parcels')
+    row = models.IntegerField()
+    col = models.IntegerField()
+    code = models.CharField(max_length=100, blank=True)
+    verified = models.BooleanField(default=False)
+    tampered = models.BooleanField(default=False)
+    info = models.CharField(max_length=200, blank=True)
+    scan_time = models.DateTimeField(blank=True, null=True)
+    photo = models.ImageField(upload_to='parcel_photos/', blank=True, null=True)
+    

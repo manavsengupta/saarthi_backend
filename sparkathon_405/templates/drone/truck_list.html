@@ -1,0 +1,91 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Truck List & Onboarding</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; }
+        .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px #0001; padding: 32px; }
+        h2 { color: #0a0; }
+        .truck-list { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 24px; }
+        .truck-card {
+            background: #f6fff6;
+            border: 2px solid #0a0;
+            border-radius: 10px;
+            padding: 18px 16px;
+            width: 260px;
+            box-shadow: 0 2px 8px #0a08;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .truck-photo { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px; }
+        .truck-info { font-size: 1.05em; margin-bottom: 8px; }
+        .qr-box { margin: 10px 0; }
+        .onboard-form { margin-top: 32px; background: #e0ffe0; padding: 18px 20px; border-radius: 10px; }
+        .onboard-form input[type="text"], .onboard-form input[type="file"] {
+            padding: 7px; border-radius: 5px; border: 1px solid #aaa; margin-bottom: 10px; width: 100%;
+        }
+        .onboard-form button { background: #0a0; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; }
+        .onboard-form label { font-weight: 600; }
+        .success { color: #0a0; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Truck List & Onboarding</h2>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="success">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        <div class="truck-list">
+            {% for truck in trucks %}
+
+            <div class="truck-card">
+                <a href="{% url 'security' truck.id %}" class="saarthi-navbar-btn" style="margin-top:10px;">
+    <i class="fa-solid fa-shield-halved"></i> Security & Verification
+</a>
+                {% if truck.photo %}
+                    <img src="{{ truck.photo.url }}" class="truck-photo" alt="Truck Photo">
+                {% else %}
+                    <img src="{% static 'img/truck_placeholder.png' %}" class="truck-photo" alt="No Photo">
+                {% endif %}
+                <div class="truck-info"><b>{{ truck.name }}</b></div>
+                <div class="truck-info">ID: {{ truck.id }}</div>
+                <div class="truck-info">Session: {{ truck.session_id|default:"-" }}</div>
+                <div class="truck-info" style="font-size:0.95em;">Onboarded: {{ truck.created_at|date:"Y-m-d H:i" }}</div>
+                <div class="qr-box" id="qr-{{ truck.id }}"></div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        new QRCode("qr-{{ truck.id }}", {
+                            text: "TruckID:{{ truck.id }}|Session:{{ truck.session_id }}",
+                            width: 80,
+                            height: 80,
+                            colorDark : "#0a0",
+                            colorLight : "#fff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+                    });
+                </script>
+            </div>
+            {% empty %}
+            <div>No trucks onboarded yet.</div>
+            {% endfor %}
+        </div>
+        <form class="onboard-form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <h3>Onboard New Truck</h3>
+            <label for="name">Truck Name:</label>
+            <input type="text" name="name" id="name" required>
+            <label for="session_id">Session/Unique ID:</label>
+            <input type="text" name="session_id" id="session_id" required>
+            <label for="photo">Truck Photo:</label>
+            <input type="file" name="photo" id="photo" accept="image/*">
+            <button type="submit">Add Truck</button>
+        </form>
+    </div>
+</body>
+</html>
